@@ -1,0 +1,75 @@
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QStackedWidget, QMessageBox, QDialog
+
+from app.ui.api_client import ApiAuthenticationError, ApiConnectionError, ApiError
+from app.ui.admin.pages import Dashboard, ResourcePage, TITLES
+
+
+def require_admin(session):
+    if session.user.get('role') != 'ADMIN':
+        raise PermissionError('Ruxsat yo‘q. Faqat administrator uchun.')
+
+
+def error_message(error):
+    if isinstance(error, ApiConnectionError):
+        return 'Serverga ulanib bo‘lmadi. Manzil va ulanishni tekshiring.'
+    if isinstance(error, ApiError):
+        return {401: 'Sessiya tugadi. Qayta kiring.', 403: 'Ruxsat yo‘q.',
+                409: 'Saqlanmadi: yozuv yoki amal bilan ziddiyat bor. Qiymatlarni tekshiring.',
+                422: 'Qiymatlarni tekshiring: majburiy maydon, narx yoki format noto‘g‘ri.',
+                413: 'Rasm hajmi 5 MB dan oshmasin.'}.get(error.status_code, 'Server amalni bajarmadi: ' + error.message)
+    return str(error)
+
+
+class AdminWindow(QMainWindow):
+    def __init__(self, client, session, on_logout):
+        super().__init__()
+        # Initialize the Qt base even on a rejected constructor path; leaving
+        # a half-initialized native QWidget can crash subsequent event processing.
+        require_admin(session)
+        self.client, self.session, self.on_logout = client, session, on_logout
+        self.setWindowTitle('Restaurant POS — Admin')
+        self.resize(1366, 768)
+        self.setMinimumSize(1024, 700)
+        root = QWidget()
+        layout = QHBoxLayout(root)
+        nav = QVBoxLayout()
+        nav.addWidget(QLabel(f"ADMIN\n{session.user.get('name', '')}"))
+        self.stack = QStackedWidget()
+        self.pages = {'dashboard': Dashboard(client, self.handle_error, self)}
+        self.pages.update({key: ResourcePage(key, client, self.handle_error, self) for key in TITLES})
+        for key, page in self.pages.items():
+            button = QPushButton('Dashboard' if key == 'dashboard' else TITLES[key])
+            button.setStyleSheet('min-height: 36px; padding: 6px 10px;')
+            button.clicked.connect(lambda _=False, value=key: self.navigate(value))
+            nav.addWidget(button)
+            self.stack.addWidget(page)
+        nav.addStretch()
+        logout = QPushButton('CHIQISH')
+        logout.setStyleSheet('min-height: 36px; padding: 6px 10px;')
+        logout.clicked.connect(self.logout)
+        nav.addWidget(logout)
+        layout.addLayout(nav, 1)
+        layout.addWidget(self.stack, 4)
+        self.setCentralWidget(root)
+        QTimer.singleShot(0, lambda: self.navigate('dashboard'))
+
+    def navigate(self, key):
+        self.stack.setCurrentWidget(self.pages[key])
+        self.pages[key].load()
+
+    def handle_error(self, error):
+        QMessageBox.warning(self, 'Admin', error_message(error))
+        if isinstance(error, ApiAuthenticationError) or isinstance(error, ApiError) and error.status_code == 403:
+            # Force-close protected forms on expired/revoked authorization.
+            for dialog in self.findChildren(QDialog):
+                if 'password' in getattr(dialog, 'widgets', {}):
+                    dialog.widgets['password'].clear()
+                dialog.done(0)
+            self.logout()
+
+    def logout(self):
+        self.client.clear_session()
+        self.session.clear()
+        self.on_logout()
+        self.close()

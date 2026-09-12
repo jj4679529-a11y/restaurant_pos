@@ -1,0 +1,32 @@
+from functools import lru_cache
+from pathlib import Path
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=PROJECT_ROOT / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    DATABASE_URL: str
+    APP_NAME: str = "Restaurant POS"
+    APP_ENV: str = "development"
+    DEBUG: bool = False
+    PRODUCT_MEDIA_DIR: Path = PROJECT_ROOT / "media" / "products"
+    JWT_SECRET_KEY: str | None = None
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=720, ge=1)
+    TELEGRAM_BOT_TOKEN: str | None = None
+    TELEGRAM_CHAT_ID: str | None = None
+    TELEGRAM_OUTBOX_BATCH_SIZE: int = Field(default=50, ge=1, le=100)
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

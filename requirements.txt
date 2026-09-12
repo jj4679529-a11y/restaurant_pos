@@ -1,0 +1,17 @@
+fastapi==0.141.1
+uvicorn==0.52.4
+sqlalchemy==2.0.52
+psycopg2-binary==2.9.12
+pydantic==2.13.5
+pydantic-settings==2.15.0
+python-dotenv==1.2.3
+alembic==1.19.2
+pwdlib==0.3.1
+argon2-cffi==25.1.0
+PyJWT==2.10.1
+# QtWidgets lives in the official PySide6 Essentials distribution; the much
+# larger optional Addons bundle is not required by this cashier UI.
+PySide6-Essentials==6.8.2.1
+pytest==9.1.1
+httpx==0.28.1
+Pillow==12.3.0
