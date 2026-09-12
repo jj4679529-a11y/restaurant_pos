@@ -15,3 +15,5 @@ PySide6-Essentials==6.8.2.1
 pytest==9.1.1
 httpx==0.28.1
 Pillow==12.3.0
+# Windows IANA timezone data for Asia/Tashkent.
+tzdata==2025.2

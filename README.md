@@ -86,3 +86,6 @@ See [the Admin UI guide](docs/admin-panel.md) for catalog configuration.
 Phase 13 plans two terminals using one HTTP backend and PostgreSQL server;
 networking, firewall changes, Windows installers, and real printer deployment
 are not part of this baseline backup.
+
+For Phase 13.1 Windows setup and the pending physical acceptance checklist, see
+[two-monoblock Wi-Fi setup](docs/two-monoblock-wifi.md).
