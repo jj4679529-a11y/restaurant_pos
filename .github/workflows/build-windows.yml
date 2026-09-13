@@ -42,6 +42,7 @@ jobs:
           python -m pip install -r requirements.txt
 
       - name: Configure DATABASE_URL
+        shell: bash
         run: |
           echo "DATABASE_URL=postgresql+psycopg2://restaurant:restaurant@localhost:5432/restaurant_pos" >> $GITHUB_ENV
           echo "QT_QPA_PLATFORM=offscreen" >> $GITHUB_ENV
@@ -54,12 +55,12 @@ jobs:
       - name: Verify database connection
         shell: bash
         run: |
-          python -c "import sqlalchemy; engine = sqlalchemy.create_engine('\${{ env.DATABASE_URL }}'); conn = engine.connect(); conn.execute(sqlalchemy.text('SELECT 1')); conn.close(); print('Database connected')"
+          python -c "import sqlalchemy; engine = sqlalchemy.create_engine('${{ env.DATABASE_URL }}'); conn = engine.connect(); conn.execute(sqlalchemy.text('SELECT 1')); conn.close(); print('Database connected')"
 
       - name: Run tests
         shell: bash
         run: |
-          unset DEBUG
+          export DEBUG=false
           python -m pytest -q
         continue-on-error: false
 
