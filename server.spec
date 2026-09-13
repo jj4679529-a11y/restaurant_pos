@@ -2,13 +2,20 @@
 
 block_cipher = None
 
+from PyInstaller.utils.hooks import collect_all
+
+psycopg_utils = collect_all('psycopg')
+
 a = Analysis(
     ['server.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[
+        *psycopg_utils[2],
+    ],
     hiddenimports=[
         'main',
+        'psycopg',
         'app.api.router',
         'app.api.health',
         'app.api.auth',
