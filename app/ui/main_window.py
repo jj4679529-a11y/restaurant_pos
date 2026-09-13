@@ -59,7 +59,8 @@ class PosMainWindow(QMainWindow):
     def _build(self) -> None:
         root = QWidget()
         root_layout = QVBoxLayout(root)
-        root_layout.setContentsMargins(16, 12, 16, 16)
+        root_layout.setContentsMargins(8, 8, 8, 8)
+        root_layout.setSpacing(8)
         root_layout.addLayout(self._top_bar())
         navigation = QHBoxLayout()
         self.fresh_order_button = QPushButton('YANGI BUYURTMA')
@@ -68,6 +69,12 @@ class PosMainWindow(QMainWindow):
         self.saved_orders_button.clicked.connect(self._saved_orders)
         navigation.addWidget(self.fresh_order_button)
         navigation.addWidget(self.saved_orders_button)
+        navigation.addStretch()
+        refresh = QPushButton('Menyuni yangilash')
+        refresh.clicked.connect(self.reload_catalog)
+        navigation.addWidget(refresh)
+        self.fresh_order_button.setCheckable(True)
+        self.fresh_order_button.setChecked(True)
         root_layout.addLayout(navigation)
         root_layout.addLayout(self._order_type_bar())
         self.delivery_container = QWidget()
@@ -91,18 +98,23 @@ class PosMainWindow(QMainWindow):
         self.cart_widget.minus_button.clicked.connect(lambda: self._change_cart_quantity(-1))
         self.cart_widget.edit_button.clicked.connect(self._edit_cart_item)
         splitter.addWidget(self.cart_widget)
-        splitter.setSizes([220, 620, 400])
+        splitter.setChildrenCollapsible(False)
+        splitter.setSizes([190, 690, 420])
+        self.splitter = splitter
         root_layout.addWidget(splitter, 1)
 
         self.status_label = QLabel("Yangi buyurtma yarating")
         self.status_label.setObjectName("statusLabel")
-        root_layout.addWidget(self.status_label)
-        actions = QHBoxLayout()
+        self.status_label.setWordWrap(True)
+        self.cart_widget.layout().addWidget(self.status_label)
+        actions = QVBoxLayout()
         self.save_button = QPushButton("Buyurtmani saqlash")
-        self.save_button.setMinimumHeight(62)
+        self.save_button.setMinimumHeight(52)
+        self.save_button.setProperty('primary', True)
         self.save_button.clicked.connect(self._save_order)
         self.checkout_button = QPushButton("Chek chop etish")
-        self.checkout_button.setMinimumHeight(62)
+        self.checkout_button.setMinimumHeight(52)
+        self.checkout_button.setProperty('primary', True)
         self.checkout_button.setEnabled(False)
         self.checkout_button.clicked.connect(self._checkout)
         actions.addWidget(self.save_button)
@@ -111,8 +123,9 @@ class PosMainWindow(QMainWindow):
         self.new_order_button.clicked.connect(self._reset_after_payment)
         self.new_order_button.setVisible(False)
         actions.addWidget(self.new_order_button)
-        root_layout.addLayout(actions)
+        self.cart_widget.layout().addLayout(actions)
         self.setCentralWidget(root)
+        self._sync_actions()
 
     def _top_bar(self) -> QHBoxLayout:
         layout = QHBoxLayout()
@@ -124,7 +137,7 @@ class PosMainWindow(QMainWindow):
         self.connection_label = QLabel("Server: tekshirilmoqda")
         layout.addWidget(self.connection_label)
         self.clock_label = QLabel()
-        self.clock_label.setMinimumWidth(190)
+        self.clock_label.setMinimumWidth(60)
         self.logout_button = QPushButton("Chiqish")
         self.logout_button.clicked.connect(self._logout)
         layout.addWidget(self.user_label)
@@ -140,7 +153,7 @@ class PosMainWindow(QMainWindow):
         self.delivery_button = QPushButton("YETKAZIB BERISH")
         for button in (self.chaykhana_button, self.delivery_button):
             button.setCheckable(True)
-            button.setMinimumHeight(56)
+            button.setMinimumHeight(44)
         self.chaykhana_button.setChecked(True)
         group = QButtonGroup(self)
         group.addButton(self.chaykhana_button)
@@ -192,7 +205,7 @@ class PosMainWindow(QMainWindow):
         from datetime import datetime
         from zoneinfo import ZoneInfo
 
-        self.clock_label.setText(datetime.now(ZoneInfo("Asia/Tashkent")).strftime("%d.%m.%Y  %H:%M:%S"))
+        self.clock_label.setText(datetime.now(ZoneInfo("Asia/Tashkent")).strftime("%H:%M"))
 
     def _handle_api_error(self, error: Exception, title: str = "Server xatosi") -> None:
         self.connection_label.setText("Server: ulanmagan" if isinstance(error, ApiConnectionError) else "Server: javob berdi")
@@ -207,6 +220,7 @@ class PosMainWindow(QMainWindow):
             QMessageBox.critical(self, title, str(error))
 
     def reload_catalog(self) -> None:
+        self.connection_label.setText('Menyu yuklanmoqda...')
         try:
             self.categories, self.products, self.workers = self.client.load_catalog()
         except Exception as error:
@@ -230,25 +244,30 @@ class PosMainWindow(QMainWindow):
     def _render_categories(self) -> None:
         self._clear_layout(self.category_layout)
         all_button = QPushButton("BARCHASI")
+        all_button.setCheckable(True)
+        all_button.setChecked(self.selected_category_id is None)
         all_button.clicked.connect(lambda: self._select_category(None))
         self.category_layout.addWidget(all_button)
         for category in self.categories:
             button = QPushButton(str(category["name"]).upper())
+            button.setCheckable(True)
+            button.setChecked(self.selected_category_id == int(category['id']))
             button.clicked.connect(lambda _checked=False, value=int(category["id"]): self._select_category(value))
             self.category_layout.addWidget(button)
         self.category_layout.addStretch()
 
     def _select_category(self, category_id: int | None) -> None:
         self.selected_category_id = category_id
+        self._render_categories()
         self._render_products()
 
     def _render_products(self) -> None:
         self._clear_layout(self.product_grid)
         visible = [
             product for product in self.products
-            if self.selected_category_id is None or int(product["category_id"]) == self.selected_category_id
+            if product.get('is_active', True) and (self.selected_category_id is None or int(product["category_id"]) == self.selected_category_id)
         ]
-        columns = max(1, self.product_scroll.viewport().width() // 200)
+        columns = max(1, self.product_scroll.viewport().width() // 152)
         for index, product in enumerate(visible):
             button = ProductCard(product, self.client.load_image(product.get("image_path")))
             button.clicked.connect(lambda _checked=False, value=product: self._add_product(value))
@@ -260,7 +279,7 @@ class PosMainWindow(QMainWindow):
             QMessageBox.information(self, "Buyurtma saqlangan", "Avval saqlangan buyurtma uchun to‘lovni yakunlang.")
             return
         try:
-            configurable = product['name'].strip().casefold() == 'osh' or product.get("allows_manual_price") or product.get("available_addons") or any(o.get("is_active", True) for o in product.get("price_options", []))
+            configurable = product.get('unit_type') == 'LITER' or product['name'].strip().casefold() == 'osh' or product.get("allows_manual_price") or product.get("available_addons") or any(o.get("is_active", True) for o in product.get("price_options", []))
             item = ProductDialog.choose(product, parent=self) if configurable else CartItem.from_catalog(product, Decimal(1))
             if item is None:
                 return
@@ -324,6 +343,16 @@ class PosMainWindow(QMainWindow):
         self.delivery_worker_combo.setEnabled(editable)
         self.cart_widget.remove_button.setEnabled(editable)
         self.cart_widget.clear_button.setEnabled(editable)
+        self.cart_widget.render(self.cart)
+        self._sync_actions()
+
+    def _sync_actions(self):
+        state = self.current_order.get('payment_status') if self.current_order else 'DRAFT'
+        self.save_button.setVisible(state == 'DRAFT')
+        self.checkout_button.setVisible(state in {'PENDING', 'PAID'})
+        self.checkout_button.setEnabled(state in {'PENDING', 'PAID'})
+        self.checkout_button.setText('QAYTA CHOP ETISH' if state == 'PAID' else 'TO‘LASH VA CHEK CHOP ETISH')
+        self.new_order_button.setVisible(state == 'PAID')
 
     def _save_order(self) -> None:
         if self.current_order is not None:
@@ -386,6 +415,7 @@ class PosMainWindow(QMainWindow):
             self.checkout_button.setText("QAYTA CHOP ETISH")
             self.checkout_button.setEnabled(True)
             self.new_order_button.setVisible(True)
+        self._sync_actions()
 
     def _reset_after_payment(self) -> None:
         if self.current_order is not None and self.current_order.get("payment_status") != "PAID":
@@ -423,6 +453,12 @@ class PosMainWindow(QMainWindow):
             self.status_label.setText(f"Buyurtma #{self.current_order['order_number']} — {state}")
             self.checkout_button.setEnabled(state in {'PENDING', 'PAID'})
             self.checkout_button.setText('QAYTA CHOP ETISH' if state == 'PAID' else 'Chek chop etish')
+            self._sync_actions()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, 'product_grid'):
+            QTimer.singleShot(0, self._render_products)
 
     def _logout(self) -> None:
         self.client.clear_session()

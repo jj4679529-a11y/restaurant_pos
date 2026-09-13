@@ -8,7 +8,7 @@ from app.ui.admin.api import menu_name
 from app.ui.widgets.product_card import product_pixmap
 from app.ui.dialogs.number_dialog import NumberDialog
 
-UNITS = [('Porsiya', 'PORTION'), ('Dona', 'PIECE'), ('Litr', 'LITER'), ('Summa', 'AMOUNT')]
+UNITS = [('Porsiya', 'PORTION'), ('Dona', 'PIECE'), ('Litr', 'LITER'), ('Qo‘lda narx', 'AMOUNT')]
 
 
 class Editor(QDialog):
@@ -18,6 +18,7 @@ class Editor(QDialog):
         self.resize(740, 640)
         self.save_callback, self.on_error = save, on_error
         self.widgets = {}
+        self.field_rows = {}
         self.saved = False
         layout = QVBoxLayout(self)
         scroll = QScrollArea()
@@ -28,6 +29,7 @@ class Editor(QDialog):
         self.form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         self.form.setSpacing(12)
         for key, label, kind in fields:
+            self.field_rows[key] = self.form.rowCount()
             value = values.get(key)
             if isinstance(kind, list):
                 widget = QComboBox()
@@ -71,6 +73,7 @@ class Editor(QDialog):
         cancel = QPushButton('BEKOR QILISH')
         cancel.clicked.connect(self.reject)
         self.save_button = QPushButton('SAQLASH')
+        self.save_button.setProperty('primary', True)
         self.save_button.clicked.connect(self.save)
         buttons.addWidget(cancel)
         buttons.addWidget(self.save_button)
@@ -144,12 +147,12 @@ def fields_for(resource, client, original):
     if resource == 'categories':
         return named + [('sort_order', 'Tartibi', 'int')] + active
     if resource in {'products', 'addons'}:
-        fields = named + [('unit_type', 'Birlik', UNITS), ('base_price', 'Bazaviy / dona narxi', 'money'),
-                          ('allows_manual_price', 'Qo‘lda narx', 'bool')] + active
+        fields = named + [('unit_type', 'Sotish turi', UNITS), ('base_price', 'Narxi', 'money'),
+                          ('allows_manual_price', 'Narxni kassir kiritadi', 'bool')] + active
         if resource == 'products':
             categories = [(c['name'], c['id']) for c in client.list_records('categories')]
             fields.insert(1, ('category_id', 'Kategoriya', categories))
-            fields.append(('image_path', 'Rasm reference', 'readonly'))
+            fields.append(('image_path', 'Rasm', 'readonly'))
         return fields
     if resource == 'workers':
         return named + [('phone', 'Telefon', 'text')] + active
@@ -201,6 +204,7 @@ class RecordEditor(Editor):
         if resource == 'presets' and original:
             self.widgets['target'].setEnabled(False)
         if resource == 'products':
+            self.form.setRowVisible(self.field_rows['image_path'], False)
             self.preview = QLabel()
             self.form.addRow(self.preview)
             self.image_preview()
@@ -210,6 +214,24 @@ class RecordEditor(Editor):
                 button.clicked.connect(handler)
                 actions.addWidget(button)
             self.form.addRow(actions)
+        if resource in {'products', 'addons'}:
+            def price_label():
+                label = self.form.itemAt(self.field_rows['base_price'], QFormLayout.ItemRole.LabelRole).widget()
+                label.setText('1 litr narxi' if self.widgets['unit_type'].currentData() == 'LITER' else 'Narxi')
+            self.widgets['unit_type'].currentIndexChanged.connect(price_label)
+            price_label()
+            if name in {'osh', 'jizz', 'gosht', 'qazi'} or name.startswith('tuxum'):
+                self.form.setRowVisible(self.field_rows['unit_type'], False)
+                self.form.setRowVisible(self.field_rows['allows_manual_price'], False)
+            if name in {'osh', 'jizz', 'gosht'}:
+                self.form.setRowVisible(self.field_rows['base_price'], False)
+                self.form.addRow(QLabel('Porsiya narxlari — Osh sozlamalarida' if name == 'osh' else 'Narxni kassir kiritadi. Tezkor narxlarni alohida sozlang.'))
+            elif name != 'qazi' and not name.startswith('tuxum'):
+                def reveal_manual():
+                    self.form.setRowVisible(self.field_rows['allows_manual_price'],
+                                            self.widgets['unit_type'].currentData() == 'AMOUNT' or self.widgets['allows_manual_price'].isChecked())
+                self.widgets['unit_type'].currentIndexChanged.connect(reveal_manual)
+                reveal_manual()
         self.initial = self.values()
 
     def image_preview(self):

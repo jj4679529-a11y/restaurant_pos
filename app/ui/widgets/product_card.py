@@ -29,11 +29,16 @@ class ProductCard(QToolButton):
             price = "Narxni tanlash"
         elif product.get("base_price", 0) > 0:
             price = format_money(product["base_price"])
+            if product.get('unit_type') == 'LITER':
+                price += ' / litr'
         else:
             price = "Narx sozlanmagan"
         self.setText(f"{product['name']}\n{price}")
         self.setIcon(QIcon(product_pixmap(image_data)))
-        self.setIconSize(QSize(180, 108))
+        self.setIconSize(QSize(132, 80))
         self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
-        self.setMinimumSize(180, 180)
+        self.setMinimumSize(140, 148)
+        self.setSizePolicy(self.sizePolicy().Policy.Expanding, self.sizePolicy().Policy.Fixed)
+        self.setFixedHeight(156)
+        self.setToolTip(self.text())
         self.setObjectName("productCard")

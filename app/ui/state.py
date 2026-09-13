@@ -9,6 +9,11 @@ def format_money(amount: int) -> str:
     return f"{amount:,}".replace(",", " ") + " so‘m"
 
 
+def format_quantity(value: Decimal) -> str:
+    text = format(Decimal(value), 'f')
+    return text.rstrip('0').rstrip('.') if '.' in text else text
+
+
 class CartValidationError(ValueError):
     pass
 
@@ -65,6 +70,7 @@ class CartItem:
     manual_price: int | None = None
     addons: tuple[CartAddOn, ...] = ()
     option_name: str | None = None
+    unit_type: str | None = None
 
     @property
     def product_total(self) -> int:
@@ -107,6 +113,7 @@ class CartItem:
             manual_price=manual_price,
             addons=addons,
             option_name=str(price_option["name"]) if price_option else None,
+            unit_type=product.get('unit_type'),
         )
 
     def to_payload(self) -> dict[str, Any]:

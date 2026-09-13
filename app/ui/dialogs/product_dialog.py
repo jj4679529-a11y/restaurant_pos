@@ -4,7 +4,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QButtonGroup, QDialog, QGridLayout, QHBoxLayout, QLabel, QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from app.ui.dialogs.number_dialog import NumberDialog
-from app.ui.state import CartAddOn, CartItem, CartValidationError, format_money
+from app.ui.state import CartAddOn, CartItem, CartValidationError, format_money, format_quantity
+from app.ui.dialogs.volume_dialog import VolumeDialog
 
 
 class ProductDialog(QDialog):
@@ -12,6 +13,7 @@ class ProductDialog(QDialog):
         super().__init__(parent)
         self.product = product
         self.is_osh = product['name'].strip().casefold() == 'osh'
+        self.is_liter = product.get('unit_type') == 'LITER'
         self.quantity = existing.quantity if existing else Decimal(1)
         self.option = None
         self.manual_price = existing.manual_price if existing else None
@@ -53,12 +55,37 @@ class ProductDialog(QDialog):
                 button.setChecked(True)
                 self.option = option
         if product.get("allows_manual_price") and not self.is_osh:
-            button = QPushButton("NARXNI TANLASH")
+            grid = QGridLayout()
+            for index, preset in enumerate(p for p in product.get('manual_price_presets', []) if p.get('is_active', True)):
+                choice = QPushButton(format_money(preset['amount']))
+                choice.clicked.connect(lambda _=False, amount=preset['amount']: self._set_product_price(amount))
+                grid.addWidget(choice, index // 3, index % 3)
+            body.addLayout(grid)
+            button = QPushButton("BOSHQA NARX")
             button.clicked.connect(self._product_price)
             body.addWidget(button)
-        body.addWidget(QLabel("Tanlangan porsiya / mahsulot soni"))
-        self.count_label = QLabel(format(self.quantity, "f"))
-        body.addLayout(self._stepper(self.count_label, self._count))
+        self.count_label = QLabel(format_quantity(self.quantity))
+        if self.is_liter:
+            body.addWidget(QLabel('1 litr narxi: ' + format_money(product.get('base_price', 0))))
+            body.addWidget(QLabel('Hajm'))
+            volumes = QHBoxLayout()
+            self.volume_group = QButtonGroup(self)
+            for value in ('0.5', '1', '1.5', '2'):
+                button = QPushButton(value + ' L')
+                button.setCheckable(True)
+                button.setChecked(self.quantity == Decimal(value))
+                self.volume_group.addButton(button)
+                button.clicked.connect(lambda _=False, amount=Decimal(value): self._volume(amount))
+                volumes.addWidget(button)
+            body.addLayout(volumes)
+            custom = QPushButton('BOSHQA HAJM')
+            custom.clicked.connect(self._custom_volume)
+            body.addWidget(custom)
+            self.count_label.setText(format_quantity(self.quantity) + ' L')
+            body.addWidget(self.count_label)
+        else:
+            body.addWidget(QLabel("Tanlangan porsiya / mahsulot soni"))
+            body.addLayout(self._stepper(self.count_label, self._count))
         if product.get("available_addons"):
             body.addWidget(QLabel("Qo‘shimchalar — shu qatordagi jami soni"))
         self.addon_labels = {}
@@ -94,7 +121,7 @@ class ProductDialog(QDialog):
                 row.addWidget(amount)
             else:
                 row.addWidget(QLabel(format_money(addon["base_price"]) if addon["base_price"] > 0 else "Narx sozlanmagan"))
-                count = QLabel(format(selected.quantity, "f") if selected else "0")
+                count = QLabel(format_quantity(selected.quantity) if selected else "0")
                 self.addon_labels[addon["id"]] = count
                 row.addLayout(self._stepper(count, lambda d, value=addon: self._addon_count(value, d)))
             body.addLayout(row)
@@ -109,6 +136,7 @@ class ProductDialog(QDialog):
         cancel = QPushButton("BEKOR QILISH")
         cancel.clicked.connect(self.reject)
         self.confirm = QPushButton("BUYURTMAGA QO‘SHISH" if existing is None else "SAQLASH")
+        self.confirm.setProperty('primary', True)
         self.confirm.clicked.connect(self._accept_item)
         actions.addWidget(cancel)
         actions.addWidget(self.confirm)
@@ -132,9 +160,23 @@ class ProductDialog(QDialog):
         self.option = value
         self._refresh()
 
+    def _volume(self, amount):
+        self.quantity = amount
+        self.count_label.setText(format_quantity(amount) + ' L')
+        self.volume_group.setExclusive(False)
+        for button in self.volume_group.buttons():
+            button.setChecked(button.text() == format_quantity(amount) + ' L')
+        self.volume_group.setExclusive(True)
+        self._refresh()
+
+    def _custom_volume(self):
+        amount = VolumeDialog.choose(self.quantity, self)
+        if amount is not None:
+            self._volume(amount)
+
     def _count(self, delta):
         self.quantity = max(Decimal(1), self.quantity + delta)
-        self.count_label.setText(format(self.quantity, "f"))
+        self.count_label.setText(format_quantity(self.quantity))
         self._refresh()
 
     def _product_price(self):
@@ -144,6 +186,10 @@ class ProductDialog(QDialog):
         if value is not None:
             self.manual_price = value
             self._refresh()
+
+    def _set_product_price(self, amount):
+        self.manual_price = amount
+        self._refresh()
 
     def _manual_addon(self, addon):
         existing = self.addons.get(addon["id"])
@@ -172,7 +218,7 @@ class ProductDialog(QDialog):
             self.addons[addon["id"]] = CartAddOn(addon["id"], addon["name"], quantity, addon["base_price"])
         else:
             self.addons.pop(addon["id"], None)
-        self.addon_labels[addon["id"]].setText(format(quantity, "f"))
+        self.addon_labels[addon["id"]].setText(format_quantity(quantity))
         self._refresh()
 
     def _item(self):

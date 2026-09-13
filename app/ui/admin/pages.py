@@ -1,12 +1,14 @@
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QPushButton, QComboBox, QInputDialog, QMessageBox
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QListWidget, QListWidgetItem, QPushButton, QComboBox, QInputDialog, QMessageBox
 
 from app.ui.admin.forms import Editor, RecordEditor
 from app.ui.admin.api import menu_name
 from app.ui.state import format_money
+from app.ui.widgets.product_card import product_pixmap
 
-TITLES = {'categories': 'Kategoriyalar', 'products': 'Mahsulotlar', 'addons': 'Qo‘shimchalar',
-          'presets': 'Narx presetlari', 'workers': 'Yetkazib beruvchilar', 'users': 'Kassirlar / foydalanuvchilar',
+TITLES = {'categories': 'Menyu guruhlari', 'products': 'Menyu', 'addons': 'Qo‘shimchalar',
+          'presets': 'Tezkor narxlar', 'workers': 'Yetkazib beruvchilar', 'users': 'Kassirlar',
           'printers': 'Printerlar', 'settings': 'Sozlamalar'}
 
 
@@ -23,6 +25,7 @@ class ResourcePage(QWidget):
         self.category.setVisible(resource == 'products')
         layout.addWidget(self.category)
         self.rows = QListWidget()
+        self.rows.setIconSize(QSize(64, 40))
         self.rows.setWordWrap(True)
         self.rows.itemDoubleClicked.connect(lambda _: self.edit())
         layout.addWidget(self.rows)
@@ -36,6 +39,7 @@ class ResourcePage(QWidget):
         refresh.clicked.connect(self.load)
         for button in (self.add_button, self.edit_button, refresh):
             actions.addWidget(button)
+        actions.addStretch()
         layout.addLayout(actions)
         if resource == 'products':
             extra = QHBoxLayout()
@@ -46,6 +50,10 @@ class ResourcePage(QWidget):
             extra.addWidget(osh)
             extra.addWidget(links)
             layout.addLayout(extra)
+        if resource in {'products', 'addons'}:
+            quick = QPushButton('TEZKOR NARXLARNI SOZLASH')
+            quick.clicked.connect(self.quick_prices)
+            layout.addWidget(quick)
         self.notice = QLabel()
         self.notice.setWordWrap(True)
         layout.addWidget(self.notice)
@@ -91,10 +99,12 @@ class ResourcePage(QWidget):
             active = 'Faol' if record.get('is_active', True) else 'Nofaol'
             text = record.get('name', record.get('key', ''))
             if self.resource == 'products':
-                price = 'Qo‘lda narx' if record['allows_manual_price'] else format_money(record['base_price'])
-                text += f" · {record['unit_type']} · {price}"
+                price = 'Narxni kassir kiritadi' if record['allows_manual_price'] else format_money(record['base_price']) + ' / ' + {'PIECE': 'dona', 'PORTION': 'porsiya', 'LITER': 'litr', 'AMOUNT': 'summa'}.get(record['unit_type'], '')
+                if menu_name(record['name']) == 'osh':
+                    price = '0.5 / 1 porsiya · Osh sozlamalari'
+                text += f" · {price}"
             elif self.resource == 'addons':
-                text += ' · Qo‘lda narx' if record['allows_manual_price'] else ' · ' + format_money(record['base_price'])
+                text += ' · Narxni kassir kiritadi' if record['allows_manual_price'] else ' · ' + format_money(record['base_price']) + ' / dona'
             elif self.resource == 'presets':
                 field = 'product_id' if record.get('product_id') else 'addon_id'
                 text = f"{self.target_names.get((field, record[field]), 'Noma’lum')} · {format_money(record['amount'])} · Tartib: {record['sort_order']}"
@@ -105,15 +115,24 @@ class ResourcePage(QWidget):
             elif self.resource == 'printers':
                 text += f" · {record['terminal_name']} · {record['connection_type']}\nPOS_PRINTER_ID={record['id']} · {record['address']}"
             elif self.resource == 'settings':
-                text += f" = {record['value']}"
+                text = {'restaurant_name': 'Restoran nomi', 'business_day_start': 'Ish kuni boshlanishi', 'timezone': 'Vaqt mintaqasi'}.get(record['key'], record['key']) + f" · {record['value']}"
             row = QListWidgetItem(text + (f'\n{active}' if self.resource != 'settings' else ''))
             row.setData(Qt.ItemDataRole.UserRole, record)
-            row.setSizeHint(QSize(0, 90))
+            row.setSizeHint(QSize(0, 64))
+            if self.resource == 'products':
+                row.setIcon(QIcon(product_pixmap(self.client.load_image(record.get('image_path')))))
             self.rows.addItem(row)
 
     def edit(self, new=False):
         original = None if new else self.selected()
         if not new and original is None:
+            return
+        if self.resource == 'products' and original and menu_name(original['name']) == 'osh':
+            window = self.window()
+            if hasattr(window, 'navigate'):
+                window.navigate('osh')
+            else:
+                self.osh_prices()
             return
         try:
             dialog = RecordEditor(self.resource, self.client, original, self.on_error, self)
@@ -122,6 +141,15 @@ class ResourcePage(QWidget):
                 self.notice.setText('Muvaffaqiyatli saqlandi.')
         except Exception as error:
             self.on_error(error)
+
+    def quick_prices(self):
+        from app.ui.admin.menu_settings import QuickPricesDialog
+        target = self.selected()
+        if not target or not target.get('allows_manual_price'):
+            QMessageBox.information(self, 'Tezkor narxlar', 'Narxini kassir kiritadigan mahsulot yoki qo‘shimchani tanlang.')
+            return
+        QuickPricesDialog(self.client, self.resource, target, self.on_error, self).exec()
+        self.load()
 
     def osh_prices(self):
         product = self.selected()
@@ -171,6 +199,19 @@ class Dashboard(QWidget):
         self.summary.setWordWrap(True)
         self.summary.setStyleSheet('font-size: 24px; padding: 24px;')
         layout.addWidget(self.summary)
+        grid = QGridLayout()
+        self.cards = {}
+        for index, (key, title) in enumerate([('products', 'Mahsulotlar'), ('workers', 'Yetkazib beruvchilar'), ('users', 'Kassirlar')]):
+            card = QWidget()
+            card.setObjectName('summaryCard')
+            box = QVBoxLayout(card)
+            box.addWidget(QLabel(title))
+            value = QLabel('—')
+            value.setObjectName('dialogTitle')
+            box.addWidget(value)
+            grid.addWidget(card, 0, index)
+            self.cards[key] = value
+        layout.addLayout(grid)
         button = QPushButton('YANGILASH')
         button.clicked.connect(self.load)
         layout.addWidget(button)
@@ -183,10 +224,12 @@ class Dashboard(QWidget):
             for resource, title in [('categories', 'Faol kategoriyalar'), ('products', 'Faol mahsulotlar'), ('workers', 'Faol yetkazib beruvchilar'),
                                     ('users', 'Faol foydalanuvchilar'), ('printers', 'Faol printerlar')]:
                 rows = self.client.list_records(resource)
+                if resource in self.cards:
+                    self.cards[resource].setText(str(sum(r.get('is_active', True) and (resource != 'users' or r['role'] == 'CASHIER') for r in rows)))
                 lines.append(f"{title}: {sum(bool(r.get('is_active', True)) for r in rows)}")
                 if resource == 'users':
                     lines.append(f"Faol kassirlar: {sum(r['role'] == 'CASHIER' and r['is_active'] for r in rows)}")
-            self.summary.setText('\n\n'.join(lines))
+            self.summary.setText(lines[0] + '\n' + next(line for line in lines if line.startswith('Faol printerlar')))
         except Exception as error:
             self.summary.setText('Backend: ma’lumot yuklanmadi')
             self.on_error(error)
