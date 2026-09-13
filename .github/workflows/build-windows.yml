@@ -7,7 +7,63 @@ on:
     branches: [phase-13-two-monoblock]
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: restaurant
+          POSTGRES_PASSWORD: restaurant
+          POSTGRES_DB: restaurant_pos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: "x64"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Configure DATABASE_URL
+        run: |
+          echo "DATABASE_URL=postgresql+psycopg2://restaurant:restaurant@localhost:5432/restaurant_pos" >> $GITHUB_ENV
+
+      - name: Run alembic upgrade
+        shell: bash
+        run: |
+          python -m alembic -c alembic.ini upgrade head
+
+      - name: Run tests
+        shell: bash
+        run: |
+          unset DEBUG
+          python -m pytest -q
+        continue-on-error: false
+
+      - name: Check alembic
+        shell: bash
+        run: |
+          python -m alembic -c alembic.ini check
+
   build-windows:
+    needs: [test]
     runs-on: windows-latest
     timeout-minutes: 60
 
@@ -31,19 +87,6 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install pyinstaller
-
-      - name: Run tests
-        shell: pwsh
-        run: |
-          Remove-Item Env:DEBUG -ErrorAction SilentlyContinue
-          python -m pytest -q
-        continue-on-error: false
-
-      - name: Check alembic
-        shell: pwsh
-        run: |
-          Remove-Item Env:DEBUG -ErrorAction SilentlyContinue
-          python -m alembic -c alembic.ini check
 
       - name: Build RestaurantPOS.exe
         shell: pwsh
