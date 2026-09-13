@@ -14,8 +14,8 @@ jobs:
       postgres:
         image: postgres:14
         env:
-          POSTGRES_USER: restaurant
-          POSTGRES_PASSWORD: restaurant
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
           POSTGRES_DB: restaurant_pos
         ports:
           - 5432:5432
@@ -44,7 +44,8 @@ jobs:
       - name: Configure DATABASE_URL
         shell: bash
         run: |
-          echo "DATABASE_URL=postgresql+psycopg2://restaurant:restaurant@localhost:5432/restaurant_pos" >> $GITHUB_ENV
+          echo "DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/restaurant_pos" >> $GITHUB_ENV
+          echo "DEBUG=false" >> $GITHUB_ENV
           echo "QT_QPA_PLATFORM=offscreen" >> $GITHUB_ENV
 
       - name: Run alembic upgrade
@@ -55,7 +56,7 @@ jobs:
       - name: Verify database connection
         shell: bash
         run: |
-          python -c "import sqlalchemy; engine = sqlalchemy.create_engine('${{ env.DATABASE_URL }}'); conn = engine.connect(); conn.execute(sqlalchemy.text('SELECT 1')); conn.close(); print('Database connected')"
+          python -c "import os, sqlalchemy; engine=sqlalchemy.create_engine(os.environ['DATABASE_URL']); conn=engine.connect(); conn.execute(sqlalchemy.text('SELECT 1')); conn.close(); print('Database connected')"
 
       - name: Run tests
         shell: bash
