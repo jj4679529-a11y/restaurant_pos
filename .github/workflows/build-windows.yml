@@ -44,11 +44,17 @@ jobs:
       - name: Configure DATABASE_URL
         run: |
           echo "DATABASE_URL=postgresql+psycopg2://restaurant:restaurant@localhost:5432/restaurant_pos" >> $GITHUB_ENV
+          echo "QT_QPA_PLATFORM=offscreen" >> $GITHUB_ENV
 
       - name: Run alembic upgrade
         shell: bash
         run: |
           python -m alembic -c alembic.ini upgrade head
+
+      - name: Verify database connection
+        shell: bash
+        run: |
+          python -c "import sqlalchemy; engine = sqlalchemy.create_engine('\${{ env.DATABASE_URL }}'); conn = engine.connect(); conn.execute(sqlalchemy.text('SELECT 1')); conn.close(); print('Database connected')"
 
       - name: Run tests
         shell: bash
