@@ -131,6 +131,26 @@ jobs:
           Remove-Item Env:DEBUG -ErrorAction SilentlyContinue
           python -m PyInstaller --noconfirm --clean server.spec
 
+      - name: Build RestaurantBootstrapAdmin.exe
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean bootstrap_admin.spec
+          if ($LASTEXITCODE -ne 0) { throw "Bootstrap build failed" }
+
+      - name: Smoke test packaged bootstrap (no database connection)
+        shell: pwsh
+        run: |
+          $env:DEBUG = "false"
+          foreach ($driver in @("psycopg", "psycopg2")) {
+            $env:DATABASE_URL = "postgresql+${driver}://unused@127.0.0.1:1/restaurant_pos"
+            & .\dist\RestaurantBootstrapAdmin.exe --self-test
+            if ($LASTEXITCODE -ne 0) { throw "Packaged bootstrap smoke test failed" }
+          }
+          Remove-Item Env:DATABASE_URL
+          & .\dist\RestaurantBootstrapAdmin.exe
+          if ($LASTEXITCODE -ne 1) { throw "Missing DATABASE_URL was not rejected" }
+          exit 0
+
       - name: Upload executables
         uses: actions/upload-artifact@v4
         with:
@@ -139,4 +159,5 @@ jobs:
             dist/RestaurantPOS.exe
             dist/RestaurantAdmin.exe
             dist/RestaurantServer.exe
+            dist/RestaurantBootstrapAdmin.exe
           if-no-files-found: error
