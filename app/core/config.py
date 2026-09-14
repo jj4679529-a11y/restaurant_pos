@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=720, ge=1)
     TELEGRAM_BOT_TOKEN: str | None = None
     TELEGRAM_CHAT_ID: str | None = None
+    TELEGRAM_ADMIN_CHAT_ID: str | None = None
+    TELEGRAM_ENABLED: bool = False
+    TELEGRAM_DAILY_REPORT_TIME: str | None = None
     TELEGRAM_OUTBOX_BATCH_SIZE: int = Field(default=50, ge=1, le=100)
 
 

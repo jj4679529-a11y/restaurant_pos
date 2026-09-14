@@ -49,6 +49,8 @@ a = Analysis(
         'app.services.telegram_outbox_service',
         'app.telegram.client',
         'app.telegram.worker',
+        'app.telegram.runtime',
+        'app.telegram.events',
         'app.telegram.message_builder',
         'app.seed.runner',
         'app.printer.interface',

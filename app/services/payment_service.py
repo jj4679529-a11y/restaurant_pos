@@ -51,12 +51,13 @@ def pay_order(session: Session, order_id: int, actor_id: int) -> PaymentResult:
         raise ServiceError(409, "ORDER_NOT_PAYABLE", "Order cannot be paid in its current state")
 
     paid_at = datetime.now(TASHKENT)
+    actor = _actor(session, actor_id)
     payment = Payment(
         order_id=order.id,
         amount=order.total_amount,
         status=PaymentStatus.PAID,
         paid_at=paid_at,
-        created_by=_actor(session, actor_id).id,
+        created_by=actor.id,
     )
     order.payment_status = PaymentStatus.PAID
     order.paid_at = paid_at
@@ -65,7 +66,7 @@ def pay_order(session: Session, order_id: int, actor_id: int) -> PaymentResult:
     session.add(TelegramOutbox(
         message_type=TelegramMessageType.PAID_ORDER,
         order_id=order.id,
-        message_text=build_paid_order_message(order),
+        message_text=build_paid_order_message(order, actor.name),
         status=TelegramOutboxStatus.PENDING,
         attempts=0,
     ))

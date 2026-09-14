@@ -174,7 +174,8 @@ def window(qt_app, monkeypatch):
     client.pay_order.return_value = {"payment_status": "PAID"}
     client.print_order.return_value = {"status": "ERROR", "error_message": "offline"}
     window = PosMainWindow(client, SessionState("token", {"name": "Kassir"}), UiSettings(POS_PRINTER_ID=123), Mock())
-    qt_app.processEvents()
+    from tests.ui_helpers import wait_for_catalog
+    wait_for_catalog(window, qt_app)
     yield window
     window.close()
 

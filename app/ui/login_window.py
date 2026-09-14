@@ -30,7 +30,7 @@ class LoginWindow(QWidget):
         layout.setContentsMargins(42, 42, 42, 42)
         title = QLabel("Restaurant POS")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet("font-size: 30px; font-weight: 700;")
+        title.setObjectName("dialogTitle")
         subtitle = QLabel("Kassir tizimiga kirish")
         subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)

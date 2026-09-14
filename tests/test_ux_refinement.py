@@ -27,7 +27,7 @@ def theme(qt_app):
     qt_app.setStyleSheet(previous)
 
 
-@pytest.mark.parametrize('size', [(1280, 720), (1366, 768), (1920, 1080)])
+@pytest.mark.parametrize('size', [(1280, 720), (1366, 768), (1600, 900), (1920, 1080)])
 def test_cashier_geometry_actions_and_cart_lines(qt_app, theme, size):
     client = Mock()
     client.load_image.return_value = None

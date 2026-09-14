@@ -46,7 +46,8 @@ def test_history_checkout_reprint_with_real_postgresql(db, qt_app):
             errors = []
             window = PosMainWindow(client, SessionState(auth['access_token'], auth['user']), UiSettings(POS_PRINTER_ID=printer_id), lambda: None)
             windows.append(window)
-            qt_app.processEvents()
+            from tests.ui_helpers import wait_for_catalog
+            wait_for_catalog(window, qt_app)
             product = next(p for p in window.products if p['name'] == 'Osh')
             dialog = ProductDialog(product)
             windows.append(dialog)

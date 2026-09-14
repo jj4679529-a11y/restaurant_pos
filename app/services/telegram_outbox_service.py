@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Callable
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, or_
 from sqlalchemy.orm import Session
 
 from app.models import TelegramOutbox, TelegramOutboxStatus
@@ -33,6 +33,7 @@ def _eligible_ids(session: Session, batch_size: int) -> list[int]:
     return list(session.scalars(
         select(TelegramOutbox.id)
         .where(TelegramOutbox.status.in_((TelegramOutboxStatus.PENDING, TelegramOutboxStatus.ERROR)))
+        .where(or_(TelegramOutbox.next_attempt_at.is_(None), TelegramOutbox.next_attempt_at <= datetime.now(TASHKENT)))
         .order_by(TelegramOutbox.created_at, TelegramOutbox.id)
         .limit(batch_size)
     ))
@@ -48,7 +49,9 @@ def _release_advisory_lock(session: Session, message_id: int) -> None:
 
 
 def _safe_error(error: TelegramClientError) -> str:
-    return str(error)[:500] or "Telegram delivery failed"
+    allowed = {"Telegram is not configured", "Telegram request timed out", "Telegram network request failed",
+               "Telegram API rejected the message", "Telegram API returned an invalid response"}
+    return str(error) if str(error) in allowed else "Telegram delivery failed"
 
 
 def process_outbox_message(
@@ -56,9 +59,18 @@ def process_outbox_message(
     message_id: int,
     client: TelegramClient,
     chat_id: str | None,
+    *,
+    respect_backoff: bool = False,
 ) -> OutboxProcessResult:
     """Attempt one message once, using a PostgreSQL advisory claim lock."""
-    session = session_factory()
+    # A session-owned connection can return to the pool on commit. Pin one
+    # physical connection so the session advisory lock survives HTTPS/commits.
+    factory_session = session_factory()
+    try:
+        connection = factory_session.get_bind().connect()
+    finally:
+        factory_session.close()
+    session = Session(bind=connection)
     acquired = False
     try:
         acquired = _try_advisory_lock(session, message_id)
@@ -72,6 +84,9 @@ def process_outbox_message(
         if message is None or message.status is TelegramOutboxStatus.SENT:
             session.commit()
             return OutboxProcessResult(message_id, message.status if message else None, attempted=False)
+        if respect_backoff and message.next_attempt_at and message.next_attempt_at > datetime.now(TASHKENT):
+            session.commit()
+            return OutboxProcessResult(message_id, None, attempted=False)
 
         # The advisory lock survives this commit; release the row lock before
         # the potentially slow HTTPS call.
@@ -79,13 +94,16 @@ def process_outbox_message(
         session.commit()
         try:
             client.send_message(chat_id or "", text)
-        except TelegramClientError as error:
+        except Exception as error:
             message = session.scalars(
                 select(TelegramOutbox).where(TelegramOutbox.id == message_id).with_for_update()
             ).one()
             message.status = TelegramOutboxStatus.ERROR
             message.attempts += 1
             message.last_error = _safe_error(error)
+            delay = min(3600, 5 * 2 ** min(message.attempts - 1, 10))
+            delay = max(delay, min(86400, getattr(error, "retry_after", 0)))
+            message.next_attempt_at = datetime.now(TASHKENT) + timedelta(seconds=delay)
             session.commit()
             return OutboxProcessResult(message_id, TelegramOutboxStatus.ERROR, attempted=True)
 
@@ -96,16 +114,17 @@ def process_outbox_message(
         message.attempts += 1
         message.sent_at = datetime.now(TASHKENT)
         message.last_error = None
+        message.next_attempt_at = None
         session.commit()
         return OutboxProcessResult(message_id, TelegramOutboxStatus.SENT, attempted=True)
     finally:
-        if acquired:
-            try:
+        try:
+            if acquired:
+                session.rollback()
                 _release_advisory_lock(session, message_id)
-            finally:
-                session.close()
-        else:
+        finally:
             session.close()
+            connection.close()
 
 
 def process_pending_messages(
@@ -113,6 +132,7 @@ def process_pending_messages(
     client: TelegramClient,
     chat_id: str | None,
     batch_size: int = 50,
+    stop_requested: Callable[[], bool] = lambda: False,
 ) -> OutboxBatchResult:
     """Process a deterministic, bounded snapshot of pending/retryable rows."""
     session = session_factory()
@@ -121,7 +141,11 @@ def process_pending_messages(
     finally:
         session.close()
 
-    results = [process_outbox_message(session_factory, message_id, client, chat_id) for message_id in message_ids]
+    results = []
+    for message_id in message_ids:
+        if stop_requested():
+            break
+        results.append(process_outbox_message(session_factory, message_id, client, chat_id, respect_backoff=True))
     return OutboxBatchResult(
         attempted=sum(result.attempted for result in results),
         sent=sum(result.status is TelegramOutboxStatus.SENT for result in results),

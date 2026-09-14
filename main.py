@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+import asyncio
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -9,6 +10,8 @@ from app.api.router import api_router
 from app.services.errors import ServiceError
 from app.core.config import get_settings
 from app.database.connection import check_postgres_connection
+from app.database.connection import SessionLocal
+from app.telegram.runtime import TelegramRuntime
 
 settings = get_settings()
 
@@ -16,7 +19,12 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     check_postgres_connection()
-    yield
+    worker = TelegramRuntime(SessionLocal, get_settings())
+    worker.start()
+    try:
+        yield
+    finally:
+        await asyncio.to_thread(worker.stop)
 
 
 app = FastAPI(

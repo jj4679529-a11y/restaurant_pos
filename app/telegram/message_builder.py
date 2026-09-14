@@ -11,14 +11,15 @@ def _format_money(amount: int) -> str:
     return f"{amount:,}".replace(",", " ") + " so‘m"
 
 
-def build_paid_order_message(order: Order) -> str:
+def build_paid_order_message(order: Order, cashier_name: str = "Noma’lum") -> str:
     paid_at = order.paid_at or datetime.now(TASHKENT)
     local_time = paid_at.astimezone(TASHKENT).strftime("%H:%M")
     lines = [
-        "✅ Yangi to‘lov",
+        "✅ TO'LOV QABUL QILINDI",
         "",
-        f"Buyurtma #{order.order_number}",
-        f"Mijoz: {'Choyxonada' if order.order_type is OrderType.CHAYKHANA else 'Yetkazib berish'}",
+        f"Buyurtma: #{order.order_number}",
+        f"Kassir: {cashier_name}",
+        f"Turi: {'Choyxona' if order.order_type is OrderType.CHAYKHANA else 'Yetkazib berish'}",
         f"Jami: {_format_money(order.total_amount)}",
         f"Vaqt: {local_time}",
     ]
@@ -49,6 +50,9 @@ def build_daily_report_message(report: DailyReportData) -> str:
     lines = [
         "📊 KUNLIK HISOBOT",
         f"📅 {report.business_date.strftime('%d.%m.%Y')}",
+        f"Sana: {report.business_date.isoformat()}",
+        f"Jami savdo: {_format_money(report.overall.amount)}",
+        f"Buyurtmalar: {report.overall.count}",
         "",
         "Choyxonada:",
         f"Buyurtmalar: {report.chaykhana.count}",
@@ -76,4 +80,24 @@ def build_daily_report_message(report: DailyReportData) -> str:
         "Kutilayotgan:",
         f"{report.pending_count} ta",
     ])
+    if report.cashiers:
+        lines.extend(["", "Kassirlar:"])
+        lines.extend(f"{name} — {_format_money(amount)}" for name, amount in report.cashiers)
     return "\n".join(lines)
+
+
+def build_printer_failure_message(job) -> str:
+    return "\n".join([
+        "⚠️ CHEK CHIQMADI", "", f"Buyurtma: #{job.order.order_number}",
+        "To'lov qabul qilindi: HA", f"Jami: {_format_money(job.order.total_amount)}",
+        f"Printer: {job.printer.name}",
+        "Xato: Printerga ulanish yoki chop etish xatosi. Printerni tekshiring.",
+    ])  # Never forward adapter exceptions, URLs, stack traces, or credentials.
+
+
+def build_delivery_assigned_message(order) -> str:
+    return "\n".join([
+        "🚚 YETKAZIB BERISH TAYINLANDI", f"Buyurtma: #{order.order_number}",
+        f"Yetkazib beruvchi: {order.delivery_worker.name}",
+        f"Jami: {_format_money(order.total_amount)}",
+    ])

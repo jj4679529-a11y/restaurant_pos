@@ -178,7 +178,8 @@ def test_osh_editor_atomic_two_prices_and_cashier_sees_changes(db, qt_app, admin
     auth = cashier_client.login(cashier_username, 'test-password')
     assert auth['user']['role'] == 'CASHIER'
     cashier_window = PosMainWindow(cashier_client, SessionState(auth['access_token'], auth['user']), UiSettings(), lambda: None)
-    qt_app.processEvents()
+    from tests.ui_helpers import wait_for_catalog
+    wait_for_catalog(cashier_window, qt_app)
     cashier_product = next(p for p in cashier_window.products if p['id'] == osh['id'])
     picker = ProductDialog(cashier_product, parent=cashier_window)
     picker.options_group.buttons()[0].click()

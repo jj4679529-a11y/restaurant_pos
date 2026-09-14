@@ -9,9 +9,10 @@ class CartWidget(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setObjectName('panel')
+        self.setProperty('role', 'order-card')
         layout = QVBoxLayout(self)
         title = QLabel("JORIY BUYURTMA")
-        title.setStyleSheet("font-size: 20px; font-weight: 700;")
+        title.setObjectName("sectionTitle")
         layout.addWidget(title)
         self.empty = QLabel('Mahsulot tanlang\nBuyurtma shu yerda ko‘rinadi')
         self.empty.setWordWrap(True)

@@ -1,10 +1,27 @@
 from typing import Protocol
+import logging
+import re
 
 import httpx
 
 
 class TelegramClientError(Exception):
     """A retryable configuration, network, or Telegram API delivery error."""
+
+    def __init__(self, message, retry_after=0):
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+class RedactTelegramURL(logging.Filter):
+    def filter(self, record):
+        record.msg = re.sub(r'(https?://api\.telegram\.org/bot)[^/\s"\']+', r'\1<redacted>', record.getMessage())
+        record.args = ()
+        return True
+
+
+for logger_name in ('httpx', 'httpcore', 'httpcore.http11', 'httpcore.connection'):
+    logging.getLogger(logger_name).addFilter(RedactTelegramURL())
 
 
 class TelegramClient(Protocol):
@@ -24,21 +41,37 @@ class TelegramBotClient:
     def send_message(self, chat_id: str, text: str) -> None:
         if not self._bot_token or not chat_id.strip():
             raise TelegramClientError("Telegram is not configured")
+        # One outbox row corresponds to one Telegram message, avoiding partial
+        # multi-part delivery on retries. Long reports retain totals at the top.
+        if len(text.encode('utf-16-le')) // 2 > 4000:
+            text = text.encode('utf-16-le')[:7800].decode('utf-16-le', errors='ignore') + '\n… Hisobot qisqartirildi.'
+        self._request("sendMessage", {"chat_id": chat_id, "text": text})
+
+    def get_updates(self, offset: int) -> list[dict]:
+        payload = self._request("getUpdates", {"offset": offset, "timeout": 0, "limit": 50, "allowed_updates": ["message"]})
+        updates = payload.get('result')
+        if not isinstance(updates, list):
+            raise TelegramClientError("Telegram API returned an invalid response")
+        return updates
+
+    def _request(self, method: str, data: dict) -> dict:
+        if not self._bot_token:
+            raise TelegramClientError("Telegram is not configured")
         try:
             with httpx.Client(timeout=self._timeout_seconds) as client:
                 response = client.post(
-                    f"https://api.telegram.org/bot{self._bot_token}/sendMessage",
-                    json={"chat_id": chat_id, "text": text},
+                    f"https://api.telegram.org/bot{self._bot_token}/{method}",
+                    json=data,
                 )
         except httpx.TimeoutException as exc:
             raise TelegramClientError("Telegram request timed out") from exc
         except httpx.RequestError as exc:
             raise TelegramClientError("Telegram network request failed") from exc
-        if response.status_code < 200 or response.status_code >= 300:
-            raise TelegramClientError(f"Telegram API returned HTTP {response.status_code}")
         try:
             payload = response.json()
-            if not isinstance(payload, dict) or payload.get("ok") is not True:
-                raise TelegramClientError("Telegram API rejected the message")
+            if response.status_code < 200 or response.status_code >= 300 or not isinstance(payload, dict) or payload.get("ok") is not True:
+                delay = payload.get('parameters', {}).get('retry_after', 0) if isinstance(payload, dict) else 0
+                raise TelegramClientError("Telegram API rejected the message", delay if isinstance(delay, int) else 0)
+            return payload
         except ValueError as exc:
             raise TelegramClientError("Telegram API returned an invalid response") from exc

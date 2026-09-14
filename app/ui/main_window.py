@@ -26,6 +26,7 @@ from app.ui.widgets.cart_widget import CartWidget
 from app.ui.widgets.product_card import ProductCard
 from app.ui.dialogs.product_dialog import ProductDialog
 from app.ui.dialogs.saved_orders import SavedOrdersDialog
+from app.ui.background import submit
 
 
 class PosMainWindow(QMainWindow):
@@ -35,12 +36,16 @@ class PosMainWindow(QMainWindow):
         session: SessionState,
         settings: UiSettings,
         on_logout: Callable[[], None],
+        on_admin: Callable[[], None] | None = None,
     ) -> None:
         super().__init__()
         self.client = client
         self.session = session
         self.settings = settings
         self.on_logout = on_logout
+        self.on_admin = on_admin
+        self.catalog_loading = False
+        self.catalog_images = {}
         self.cart = Cart()
         self.categories: list[dict[str, Any]] = []
         self.products: list[dict[str, Any]] = []
@@ -54,7 +59,7 @@ class PosMainWindow(QMainWindow):
         self._start_clock()
         # Defer until the launcher owns/shows this window; an expired session
         # during catalog loading can then safely switch back to login.
-        QTimer.singleShot(0, self.reload_catalog)
+        QTimer.singleShot(0, self.reload_catalog_async)
 
     def _build(self) -> None:
         root = QWidget()
@@ -71,7 +76,7 @@ class PosMainWindow(QMainWindow):
         navigation.addWidget(self.saved_orders_button)
         navigation.addStretch()
         refresh = QPushButton('Menyuni yangilash')
-        refresh.clicked.connect(self.reload_catalog)
+        refresh.clicked.connect(self.reload_catalog_async)
         navigation.addWidget(refresh)
         self.fresh_order_button.setCheckable(True)
         self.fresh_order_button.setChecked(True)
@@ -89,8 +94,12 @@ class PosMainWindow(QMainWindow):
         root_layout.addWidget(self.delivery_container)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.addWidget(self._category_panel())
-        splitter.addWidget(self._product_panel())
+        catalog = QWidget()
+        catalog_layout = QVBoxLayout(catalog)
+        catalog_layout.setContentsMargins(0, 0, 0, 0)
+        catalog_layout.addWidget(self._category_panel())
+        catalog_layout.addWidget(self._product_panel(), 1)
+        splitter.addWidget(catalog)
         self.cart_widget = CartWidget()
         self.cart_widget.remove_button.clicked.connect(self._remove_selected_cart_item)
         self.cart_widget.clear_button.clicked.connect(self._clear_cart)
@@ -99,7 +108,9 @@ class PosMainWindow(QMainWindow):
         self.cart_widget.edit_button.clicked.connect(self._edit_cart_item)
         splitter.addWidget(self.cart_widget)
         splitter.setChildrenCollapsible(False)
-        splitter.setSizes([190, 690, 420])
+        splitter.setStretchFactor(0, 7)
+        splitter.setStretchFactor(1, 3)
+        splitter.setSizes([940, 420])
         self.splitter = splitter
         root_layout.addWidget(splitter, 1)
 
@@ -130,7 +141,7 @@ class PosMainWindow(QMainWindow):
     def _top_bar(self) -> QHBoxLayout:
         layout = QHBoxLayout()
         title = QLabel("Restaurant POS")
-        title.setStyleSheet("font-size: 26px; font-weight: 700;")
+        title.setObjectName("dialogTitle")
         layout.addWidget(title)
         layout.addStretch()
         self.user_label = QLabel(f"Kassir: {self.session.user.get('name', '')}")
@@ -140,6 +151,10 @@ class PosMainWindow(QMainWindow):
         self.clock_label.setMinimumWidth(60)
         self.logout_button = QPushButton("Chiqish")
         self.logout_button.clicked.connect(self._logout)
+        self.admin_button = QPushButton("Admin")
+        self.admin_button.setProperty('role', 'secondary')
+        self.admin_button.clicked.connect(lambda: self.on_admin() if self.on_admin else None)
+        layout.addWidget(self.admin_button)
         layout.addWidget(self.user_label)
         layout.addWidget(self.clock_label)
         layout.addWidget(self.logout_button)
@@ -148,7 +163,7 @@ class PosMainWindow(QMainWindow):
     def _order_type_bar(self) -> QHBoxLayout:
         layout = QHBoxLayout()
         label = QLabel("Buyurtma turi:")
-        label.setStyleSheet("font-size: 19px; font-weight: 700;")
+        label.setObjectName("sectionTitle")
         self.chaykhana_button = QPushButton("CHOYXONADA")
         self.delivery_button = QPushButton("YETKAZIB BERISH")
         for button in (self.chaykhana_button, self.delivery_button):
@@ -162,6 +177,10 @@ class PosMainWindow(QMainWindow):
         self.delivery_button.clicked.connect(lambda: self._set_order_type("DELIVERY"))
         layout.addWidget(label)
         layout.addWidget(self.chaykhana_button)
+        self.takeaway_button = QPushButton("OLIB KETISH")
+        self.takeaway_button.setEnabled(False)
+        self.takeaway_button.setToolTip("Backend hozircha bu buyurtma turini qo‘llamaydi")
+        layout.addWidget(self.takeaway_button)
         layout.addWidget(self.delivery_button)
         layout.addStretch()
         return layout
@@ -170,23 +189,32 @@ class PosMainWindow(QMainWindow):
         panel = QWidget()
         layout = QVBoxLayout(panel)
         title = QLabel("KATEGORIYALAR")
-        title.setStyleSheet("font-size: 19px; font-weight: 700;")
+        title.setObjectName("sectionTitle")
         layout.addWidget(title)
         self.category_scroll = QScrollArea()
         self.category_scroll.setWidgetResizable(True)
         self.category_content = QWidget()
-        self.category_layout = QVBoxLayout(self.category_content)
+        self.category_layout = QHBoxLayout(self.category_content)
         self.category_layout.addStretch()
         self.category_scroll.setWidget(self.category_content)
         layout.addWidget(self.category_scroll)
+        self.category_scroll.setFixedHeight(78)
+        self.category_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         return panel
 
     def _product_panel(self) -> QWidget:
         panel = QWidget()
         layout = QVBoxLayout(panel)
         title = QLabel("MAHSULOTLAR")
-        title.setStyleSheet("font-size: 19px; font-weight: 700;")
+        title.setObjectName("sectionTitle")
         layout.addWidget(title)
+        self.catalog_message = QLabel("Yuklanmoqda...")
+        self.catalog_message.setWordWrap(True)
+        layout.addWidget(self.catalog_message)
+        self.catalog_retry = QPushButton("Qayta urinish")
+        self.catalog_retry.clicked.connect(self.reload_catalog_async)
+        self.catalog_retry.hide()
+        layout.addWidget(self.catalog_retry)
         self.product_scroll = QScrollArea()
         self.product_scroll.setWidgetResizable(True)
         self.product_content = QWidget()
@@ -220,19 +248,62 @@ class PosMainWindow(QMainWindow):
             QMessageBox.critical(self, title, str(error))
 
     def reload_catalog(self) -> None:
+        """Synchronous adapter retained for explicit callers; UI uses background jobs."""
         self.connection_label.setText('Menyu yuklanmoqda...')
         try:
-            self.categories, self.products, self.workers = self.client.load_catalog()
+            result = self.client.load_catalog()
         except Exception as error:
             self._handle_api_error(error, "Katalog yuklanmadi")
             return
+        self._catalog_loaded(result, None)
+
+    def reload_catalog_async(self):
+        if self.catalog_loading:
+            return
+        self.catalog_loading = True
+        self.catalog_message.setText("Yuklanmoqda...")
+        self.catalog_message.show()
+        self.catalog_retry.hide()
+        self.product_scroll.setEnabled(False)
+        self.connection_label.setText("Menyu yuklanmoqda...")
+        self.catalog_job = submit(self._fetch_catalog, self._catalog_loaded)
+
+    def _fetch_catalog(self):
+        result = self.client.load_catalog()
+        images = {p['id']: self.client.load_image(p.get('image_path')) for p in result[1]}
+        return (*result, images)
+
+    def _catalog_loaded(self, result, error):
+        self.catalog_loading = False
+        if not self.session.access_token:
+            return
+        self.product_scroll.setEnabled(True)
+        if error:
+            self.catalog_message.setText("Ma’lumotlarni yuklab bo‘lmadi")
+            self.catalog_message.show()
+            self.catalog_retry.show()
+            self.connection_label.setText("Server: ulanmagan")
+            if isinstance(error, ApiAuthenticationError):
+                self._handle_api_error(error)
+            return
+        self.categories, self.products, self.workers = result[:3]
+        self.categories = [c for c in self.categories if c.get('is_active', True)]
+        self.catalog_images = result[3] if len(result) > 3 else {}
+        if self.selected_category_id not in {c['id'] for c in self.categories}:
+            self.selected_category_id = self.categories[0]['id'] if self.categories else None
+        self.catalog_retry.hide()
         self._render_categories()
         self.connection_label.setText("Server: ulangan")
         self._render_products()
+        selected_worker = self.delivery_worker_combo.currentData()
         self.delivery_worker_combo.clear()
         self.delivery_worker_combo.addItem("Yetkazib beruvchini tanlang", None)
         for worker in self.workers:
-            self.delivery_worker_combo.addItem(str(worker["name"]), int(worker["id"]))
+            if worker.get('is_active', True):
+                self.delivery_worker_combo.addItem(str(worker["name"]), int(worker["id"]))
+        selected_index = self.delivery_worker_combo.findData(selected_worker)
+        if selected_index >= 0:
+            self.delivery_worker_combo.setCurrentIndex(selected_index)
 
     @staticmethod
     def _clear_layout(layout) -> None:
@@ -251,6 +322,7 @@ class PosMainWindow(QMainWindow):
         for category in self.categories:
             button = QPushButton(str(category["name"]).upper())
             button.setCheckable(True)
+            button.setProperty('role', 'category')
             button.setChecked(self.selected_category_id == int(category['id']))
             button.clicked.connect(lambda _checked=False, value=int(category["id"]): self._select_category(value))
             self.category_layout.addWidget(button)
@@ -267,9 +339,12 @@ class PosMainWindow(QMainWindow):
             product for product in self.products
             if product.get('is_active', True) and (self.selected_category_id is None or int(product["category_id"]) == self.selected_category_id)
         ]
-        columns = max(1, self.product_scroll.viewport().width() // 152)
+        columns = max(1, self.product_scroll.viewport().width() // 176)
+        if not self.catalog_loading and self.catalog_retry.isHidden():
+            self.catalog_message.setText("Bu kategoriyada mahsulot yo‘q" if self.categories else "Katalog bo‘sh. Admin panelda menyuni sozlang.")
+            self.catalog_message.setVisible(not visible)
         for index, product in enumerate(visible):
-            button = ProductCard(product, self.client.load_image(product.get("image_path")))
+            button = ProductCard(product, self.catalog_images.get(product['id']))
             button.clicked.connect(lambda _checked=False, value=product: self._add_product(value))
             self.product_grid.addWidget(button, index // columns, index % columns)
         self.product_grid.setRowStretch((len(visible) // columns) + 1, 1)

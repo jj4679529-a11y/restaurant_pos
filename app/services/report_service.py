@@ -4,7 +4,7 @@ from datetime import date
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import BusinessDay, DeliveryWorker, Order, OrderType, PaymentStatus
+from app.models import BusinessDay, DeliveryWorker, Order, OrderType, PaymentStatus, Payment, User
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,7 @@ class DailyReportData:
     overall: OrderTotals
     cancelled: OrderTotals
     pending_count: int
+    cashiers: tuple[tuple[str, int], ...] = ()
 
 
 def _totals(session: Session, business_day_id: int, status: PaymentStatus, order_type: OrderType | None = None) -> OrderTotals:
@@ -76,4 +77,12 @@ def build_daily_report_data(session: Session, business_day: BusinessDay) -> Dail
         overall=OrderTotals(count=chaykhana.count + delivery.count, amount=chaykhana.amount + delivery.amount),
         cancelled=cancelled,
         pending_count=pending.count,
+        cashiers=tuple((name, int(amount)) for name, amount in session.execute(
+            select(User.name, func.sum(Payment.amount))
+            .join(Payment, Payment.created_by == User.id)
+            .join(Order, Order.id == Payment.order_id)
+            .where(Order.business_day_id == business_day.id,
+                   Order.payment_status == PaymentStatus.PAID, Payment.status == PaymentStatus.PAID)
+            .group_by(User.id, User.name).order_by(User.name, User.id)
+        )),
     )

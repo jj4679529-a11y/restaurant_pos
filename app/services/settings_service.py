@@ -7,7 +7,7 @@ from app.models import Setting
 from app.schemas.settings import SettingUpdate
 from app.services.errors import ServiceError, not_found
 
-SECRET_SETTING_KEYS = ("ADMIN_PASSWORD", "DATABASE_URL", "JWT_SECRET_KEY", "TELEGRAM_BOT_TOKEN")
+SECRET_SETTING_KEYS = ("ADMIN_PASSWORD", "DATABASE_URL", "JWT_SECRET_KEY", "TELEGRAM_BOT_TOKEN", "_telegram_update_offset")
 
 
 def list_settings(session: Session, limit: int, offset: int) -> Sequence[Setting]:

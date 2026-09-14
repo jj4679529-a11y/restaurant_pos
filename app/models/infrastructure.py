@@ -51,6 +51,7 @@ class TelegramOutbox(CreatedAtMixin, Base):
         Index("ix_telegram_outbox_status", "status"),
         Index("ix_telegram_outbox_created_at", "created_at"),
         Index("ix_telegram_outbox_status_created_at", "status", "created_at"),
+        Index("ix_telegram_outbox_next_attempt_at", "next_attempt_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -70,6 +71,8 @@ class TelegramOutbox(CreatedAtMixin, Base):
     attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    event_key: Mapped[str | None] = mapped_column(String(160), unique=True, nullable=True)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     order: Mapped[Order | None] = relationship(back_populates="telegram_messages")
 
