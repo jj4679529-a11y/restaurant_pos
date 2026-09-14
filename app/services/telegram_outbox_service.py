@@ -122,6 +122,9 @@ def process_outbox_message(
             if acquired:
                 session.rollback()
                 _release_advisory_lock(session, message_id)
+        except Exception:
+            connection.invalidate()  # Never return a still-locked connection to the pool.
+            raise
         finally:
             session.close()
             connection.close()

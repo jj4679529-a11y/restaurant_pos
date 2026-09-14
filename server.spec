@@ -18,6 +18,12 @@ a = Analysis(
     hiddenimports=[
         'main',
         'psycopg',
+        'httpx',
+        'httpx._config',
+        'httpx._multidict',
+        'httpx._models',
+        'httpx._types',
+        'httpx._utils',
         *psycopg_hiddenimports,
         'app.api.router',
         'app.api.health',

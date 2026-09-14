@@ -10,6 +10,7 @@ from app.database.connection import engine
 @pytest.fixture(autouse=True)
 def jwt_test_settings(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("JWT_SECRET_KEY", "restaurant-pos-test-jwt-secret")
+    monkeypatch.setenv("TELEGRAM_ENABLED", "false")  # No live Telegram in tests.
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
