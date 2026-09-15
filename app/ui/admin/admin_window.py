@@ -4,6 +4,7 @@ from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QP
 from app.ui.api_client import ApiAuthenticationError, ApiConnectionError, ApiError
 from app.ui.admin.pages import Dashboard, ResourcePage, TITLES
 from app.ui.admin.menu_settings import OshPage
+from app.ui.admin.reports import ReportsPage
 
 
 def require_admin(session):
@@ -44,17 +45,20 @@ class AdminWindow(QMainWindow):
         self.pages = {'dashboard': Dashboard(client, self.handle_error, self)}
         self.pages.update({key: ResourcePage(key, client, self.handle_error, self) for key in TITLES})
         self.pages['osh'] = OshPage(client, self.handle_error, self)
-        self.pages = {key: self.pages[key] for key in ('dashboard', 'products', 'categories', 'osh', 'addons', 'presets', 'workers', 'users', 'printers', 'settings')}
+        self.pages['reports'] = ReportsPage(client, self.handle_error, self)
+        self.pages = {key: self.pages[key] for key in ('dashboard', 'products', 'workers', 'users', 'reports', 'printers', 'settings', 'categories', 'osh', 'addons', 'presets')}
         self.nav_buttons = {}
         for key, page in self.pages.items():
-            button = QPushButton('Osh sozlamalari' if key == 'osh' else 'Dashboard' if key == 'dashboard' else TITLES[key])
+            self.stack.addWidget(page)
+            if key in {'categories', 'osh', 'addons', 'presets'}:
+                continue
+            button = QPushButton('Hisobotlar' if key == 'reports' else 'Dashboard' if key == 'dashboard' else TITLES[key])
             button.setFixedHeight(48)
             button.setCheckable(True)
             button.setProperty('role', 'admin-navigation')
             self.nav_buttons[key] = button
             button.clicked.connect(lambda _=False, value=key: self.navigate(value))
             nav.addWidget(button)
-            self.stack.addWidget(page)
         nav.addStretch()
         logout = QPushButton('← Kassaga qaytish' if embedded else 'CHIQISH')
         logout.clicked.connect(self.logout)
@@ -70,7 +74,7 @@ class AdminWindow(QMainWindow):
             return
         self.stack.setCurrentWidget(self.pages[key])
         for name, button in self.nav_buttons.items():
-            button.setChecked(name == key)
+            button.setChecked(name == key or name == 'products' and key in {'categories', 'osh', 'addons', 'presets'})
         self.pages[key].load()
 
     def handle_error(self, error):

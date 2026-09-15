@@ -113,6 +113,10 @@ jobs:
         run: |
           python -m pip install pyinstaller
 
+      - name: Verify Windows 10 PowerShell compatibility and updater
+        shell: powershell
+        run: .\scripts\test-deployment.ps1
+
       - name: Build RestaurantPOS.exe
         shell: pwsh
         run: |
@@ -151,6 +155,43 @@ jobs:
           if ($LASTEXITCODE -ne 1) { throw "Missing DATABASE_URL was not rejected" }
           exit 0
 
+      - name: Create binary checksums
+        shell: pwsh
+        run: |
+          $hashes = @{}
+          foreach ($name in @('RestaurantServer.exe', 'RestaurantPOS.exe', 'RestaurantAdmin.exe')) {
+            $hashes[$name] = (Get-FileHash "dist/$name" -Algorithm SHA256).Hash
+          }
+          $hashes | ConvertTo-Json | Set-Content dist/SHA256.json -Encoding UTF8
+          Copy-Item scripts/update_windows.ps1 dist/
+          Copy-Item scripts/install_autostart_windows.ps1 dist/
+          Copy-Item scripts/start-runtime.ps1 dist/
+
+      - name: Prepare Monoblock 1 installation package
+        shell: pwsh
+        run: |
+          $root = 'dist/RestaurantPOS'
+          foreach ($folder in @('app', 'config', 'scripts', 'logs')) {
+            New-Item -ItemType Directory -Path "$root/$folder" -Force | Out-Null
+          }
+          foreach ($name in @('RestaurantServer.exe', 'RestaurantPOS.exe', 'RestaurantAdmin.exe', 'SHA256.json')) {
+            Copy-Item "dist/$name" "$root/app/"
+          }
+          Copy-Item scripts/install_autostart_windows.ps1 "$root/scripts/install-autostart.ps1"
+          Copy-Item scripts/update_windows.ps1 "$root/scripts/update.ps1"
+          Copy-Item scripts/start-runtime.ps1 "$root/scripts/"
+          Copy-Item docs/monoblock1-install.txt "$root/INSTALL.txt"
+          Set-Content "$root/config/README.txt" 'Preserve your existing .env here. No secrets are included in this package.'
+          Set-Content "$root/logs/README.txt" 'Reserved for operator diagnostics. Preserve across updates.'
+          Compress-Archive -Path $root -DestinationPath dist/RestaurantPOS-Monoblock1.zip
+
+      - name: Upload Monoblock 1 installation package
+        uses: actions/upload-artifact@v4
+        with:
+          name: monoblock1-installation
+          path: dist/RestaurantPOS-Monoblock1.zip
+          if-no-files-found: error
+
       - name: Upload executables
         uses: actions/upload-artifact@v4
         with:
@@ -159,5 +200,9 @@ jobs:
             dist/RestaurantPOS.exe
             dist/RestaurantAdmin.exe
             dist/RestaurantServer.exe
+            dist/SHA256.json
+            dist/update_windows.ps1
+            dist/install_autostart_windows.ps1
+            dist/start-runtime.ps1
             dist/RestaurantBootstrapAdmin.exe
           if-no-files-found: error

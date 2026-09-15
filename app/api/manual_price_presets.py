@@ -6,6 +6,7 @@ from app.api.deps import AdminUser, CashierOrAdminUser, DbSession, Limit, Offset
 from app.models import AddOn, ManualPricePreset, Product
 from app.schemas.catalog import ManualPricePresetCreate, ManualPricePresetResponse, ManualPricePresetUpdate
 from app.services.errors import ServiceError, conflict, not_found
+from app.menu_rules import menu_key
 
 router = APIRouter(prefix="/manual-price-presets", tags=["manual price presets"])
 
@@ -42,6 +43,9 @@ def update_preset(preset_id: int, data: ManualPricePresetUpdate, db: DbSession, 
 
 
 def _save(db, preset):
+    addon = db.get(AddOn, preset.addon_id) if preset.addon_id else None
+    if addon is not None and menu_key(addon.name) == 'gosht' and preset.amount < 5000:
+        raise ServiceError(400, 'gosht_minimum', 'Go‘sht amount must be at least 5000 UZS')
     try:
         db.add(preset)
         db.commit()

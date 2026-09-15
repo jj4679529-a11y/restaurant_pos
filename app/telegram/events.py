@@ -7,7 +7,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from app.models import (BusinessDay, Order, OrderType, PaymentStatus, PrintJob,
                         PrintJobStatus, TelegramMessageType, TelegramOutbox, TelegramOutboxStatus)
-from app.services.business_day_service import get_current_business_date
+from app.services.business_day_service import get_current_business_date, business_clock
 from app.services.report_service import build_daily_report_data, DailyReportData, OrderTotals
 from app.telegram.message_builder import (build_daily_report_message, build_delivery_assigned_message,
                                           build_printer_failure_message)
@@ -44,7 +44,7 @@ def collect_committed_events(session, batch_size=50):
 
 
 def current_report(session, now=None):
-    business_date = get_current_business_date(now)
+    business_date = get_current_business_date(now, session)
     day = session.scalar(select(BusinessDay).where(BusinessDay.business_date == business_date))
     if day is not None:
         return build_daily_report_data(session, day)
@@ -55,14 +55,15 @@ def current_report(session, now=None):
 def schedule_report(session, report_time, now=None):
     if not report_time:
         return
-    now = (now or datetime.now(TASHKENT)).astimezone(TASHKENT)
+    timezone, boundary = business_clock(session)
+    now = (now or datetime.now(timezone)).astimezone(timezone)
     hour, minute = map(int, report_time.split(':'))
     # Before 06:00 belongs to the preceding business date. Compute that day's
     # scheduled wall clock instant, including schedules in the next morning.
     from datetime import timedelta
-    business_date = get_current_business_date(now)
-    scheduled_date = business_date + timedelta(days=1 if hour < 6 else 0)
-    due = datetime.combine(scheduled_date, datetime.min.time(), TASHKENT).replace(hour=hour, minute=minute)
+    business_date = get_current_business_date(now, session)
+    scheduled_date = business_date + timedelta(days=1 if (hour, minute) < (boundary.hour, boundary.minute) else 0)
+    due = datetime.combine(scheduled_date, datetime.min.time(), timezone).replace(hour=hour, minute=minute)
     if now < due:
         return
     key = f'scheduled-report:{business_date}'
@@ -79,7 +80,7 @@ def command_reply(session, command, now=None):
     if command == '/status':
         count = session.scalar(select(func.count()).select_from(TelegramOutbox).where(
             TelegramOutbox.status != TelegramOutboxStatus.SENT))
-        return f'Backend: ishlayapti\nBiznes kuni: {get_current_business_date(now)}\nTelegram navbati: {count}'
+        return f'Backend: ishlayapti\nBiznes kuni: {get_current_business_date(now, session)}\nTelegram navbati: {count}'
     report = current_report(session, now)
     if command == '/today':
         return build_daily_report_message(report)

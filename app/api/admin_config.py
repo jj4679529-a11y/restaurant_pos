@@ -15,9 +15,22 @@ from app.models import AddOn, ManualPricePreset, PriceOption, Printer, PrinterCo
 from app.schemas.catalog import ManualPricePresetResponse, PriceOptionResponse, ProductAddOnResponse
 from app.schemas.settings import SettingResponse, SettingUpdate
 from app.services.errors import ServiceError, conflict, not_found
+from app.menu_rules import menu_key, OSH_ADDONS
 
 router = APIRouter(prefix='/admin', tags=['admin configuration'])
 SAFE_SETTINGS = {'restaurant_name', 'business_day_start', 'timezone'}
+
+
+@router.post('/menu/prepare')
+def prepare_menu(db: DbSession, _admin: AdminUser):
+    from app.services.final_menu_service import prepare_final_menu
+    try:
+        result = prepare_final_menu(db)
+        db.commit()
+        return result
+    except Exception:
+        db.rollback()
+        raise
 
 
 class PrinterData(BaseModel):
@@ -89,6 +102,8 @@ def set_link(product_id: int, addon_id: int, data: LinkState, db: DbSession, _ad
     product, addon = db.get(Product, product_id), db.get(AddOn, addon_id)
     if product is None or addon is None:
         raise not_found('Product or addon')
+    if data.is_active and menu_key(addon.name) in OSH_ADDONS and menu_key(product.name) != 'osh':
+        raise ServiceError(400, 'osh_addon_only', 'This addon is available only for Osh')
     if data.is_active and (not product.is_active or not addon.is_active):
         raise ServiceError(400, 'inactive_catalog_item', 'Activate product and addon first')
     record = db.scalar(select(ProductAddOn).where(ProductAddOn.product_id == product_id, ProductAddOn.addon_id == addon_id))
@@ -132,9 +147,8 @@ def safe_settings(db: DbSession, _admin: AdminUser):
 def update_safe_setting(key: str, data: SettingUpdate, db: DbSession, _admin: AdminUser):
     if key not in SAFE_SETTINGS:
         raise ServiceError(403, 'protected_setting', 'Setting is not available in Admin UI')
-    expected = {'business_day_start': '06:00', 'timezone': 'Asia/Tashkent'}
-    if key in expected and data.value != expected[key]:
-        raise ServiceError(400, 'FIXED_BUSINESS_RULE', 'Business day boundary and timezone are fixed')
+    from app.services.settings_service import validate_setting
+    validate_setting(key, data.value)
     if not data.value.strip():
         raise ServiceError(422, 'EMPTY_VALUE', 'Value must not be blank')
     record = db.scalar(select(Setting).where(Setting.key == key))

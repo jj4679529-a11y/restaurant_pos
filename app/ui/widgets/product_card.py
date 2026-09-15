@@ -2,7 +2,7 @@ from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QToolButton
 
-from app.ui.state import format_money
+from app.ui.state import format_money, format_quantity
 
 
 def product_pixmap(image_data=None):
@@ -34,7 +34,10 @@ class ProductCard(QToolButton):
         else:
             price = "Narx sozlanmagan"
         available = product.get('is_active', True)
-        self.setText(f"{product['name']}\n{price}\n" + ("+ Qo‘shish · Mavjud" if available else "Mavjud emas"))
+        title = product['name']
+        if product.get('volume_liters'):
+            title += '\n' + format_quantity(product['volume_liters']) + ' L'
+        self.setText(f"{title}\n{price}\n" + ("+ Qo‘shish · Mavjud" if available else "Mavjud emas"))
         self.setEnabled(available)
         self.setProperty('role', 'product-card')
         self.setIcon(QIcon(product_pixmap(image_data)))
@@ -42,6 +45,6 @@ class ProductCard(QToolButton):
         self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
         self.setMinimumSize(160, 176)
         self.setSizePolicy(self.sizePolicy().Policy.Expanding, self.sizePolicy().Policy.Fixed)
-        self.setFixedHeight(176)
+        self.setFixedHeight(196 if product.get('volume_liters') else 176)
         self.setToolTip(self.text())
         self.setObjectName("productCard")

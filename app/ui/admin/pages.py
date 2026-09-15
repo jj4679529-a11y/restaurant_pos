@@ -19,6 +19,13 @@ class ResourcePage(QWidget):
         self.records = []
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel(TITLES[resource]))
+        if resource in {'products', 'categories', 'addons', 'presets'}:
+            sections = QHBoxLayout()
+            for key, title in [('products', 'Mahsulotlar'), ('categories', 'Guruhlar'), ('addons', 'Qo‘shimchalar'), ('presets', 'Tezkor narxlar')]:
+                button = QPushButton(title)
+                button.clicked.connect(lambda _=False, k=key: self.window().navigate(k) if hasattr(self.window(), 'navigate') else None)
+                sections.addWidget(button)
+            layout.addLayout(sections)
         self.category = QComboBox()
         self.category.addItem('Barcha kategoriyalar', None)
         self.category.currentIndexChanged.connect(self.render)
@@ -43,13 +50,16 @@ class ResourcePage(QWidget):
         layout.addLayout(actions)
         if resource == 'products':
             extra = QHBoxLayout()
-            osh = QPushButton('OSH: 0.5 / 1 NARXLARI')
-            osh.clicked.connect(self.osh_prices)
+            osh = QPushButton('PORSIYA / NON VARIANTLARI')
+            osh.clicked.connect(self.portions)
             links = QPushButton('QO‘SHIMCHA BOG‘LASH / AJRATISH')
             links.clicked.connect(self.links)
             extra.addWidget(osh)
             extra.addWidget(links)
             layout.addLayout(extra)
+            prepare = QPushButton('YAKUNIY MENYUNI TAYYORLASH')
+            prepare.clicked.connect(self.prepare_menu)
+            layout.addWidget(prepare)
         if resource in {'products', 'addons'}:
             quick = QPushButton('TEZKOR NARXLARNI SOZLASH')
             quick.clicked.connect(self.quick_prices)
@@ -57,6 +67,21 @@ class ResourcePage(QWidget):
         self.notice = QLabel()
         self.notice.setWordWrap(True)
         layout.addWidget(self.notice)
+        if resource == 'settings':
+            password = QPushButton('ADMIN PAROLINI O‘ZGARTIRISH')
+            password.clicked.connect(self.change_password)
+            layout.addWidget(password)
+
+    def change_password(self):
+        window = self.window()
+        if not hasattr(window, 'session'):
+            return
+        user = window.session.user
+        def save(data):
+            if not data['password'].strip():
+                raise ValueError('Yangi parolni kiriting')
+            self.client.request('PATCH', f'/api/users/{user["id"]}', data)
+        Editor('Admin paroli', [('password', 'Yangi parol', 'password')], {}, save, self.on_error, self).exec()
 
     def selected(self):
         item = self.rows.currentItem()
@@ -87,7 +112,7 @@ class ResourcePage(QWidget):
             self.render()
             self.notice.setText('Yozuvni tanlab tahrirlang. O‘chirish o‘rniga nofaol qilish ishlatiladi.')
             if self.resource == 'settings':
-                self.notice.setText('06:00 va Asia/Tashkent — tasdiqlangan backend qoidalari. Maxfiy kalitlar bu yerda yo‘q.')
+                self.notice.setText('Standart: 06:00, Asia/Tashkent. Sozlama yangi buyurtmalarga ta’sir qiladi; tarix o‘zgarmaydi.')
         except Exception as error:
             self.on_error(error)
 
@@ -101,7 +126,7 @@ class ResourcePage(QWidget):
             if self.resource == 'products':
                 price = 'Narxni kassir kiritadi' if record['allows_manual_price'] else format_money(record['base_price']) + ' / ' + {'PIECE': 'dona', 'PORTION': 'porsiya', 'LITER': 'litr', 'AMOUNT': 'summa'}.get(record['unit_type'], '')
                 if menu_name(record['name']) == 'osh':
-                    price = '0.5 / 1 porsiya · Osh sozlamalari'
+                    price = 'Admin belgilagan porsiyalar'
                 text += f" · {price}"
             elif self.resource == 'addons':
                 text += ' · Narxni kassir kiritadi' if record['allows_manual_price'] else ' · ' + format_money(record['base_price']) + ' / dona'
@@ -109,7 +134,7 @@ class ResourcePage(QWidget):
                 field = 'product_id' if record.get('product_id') else 'addon_id'
                 text = f"{self.target_names.get((field, record[field]), 'Noma’lum')} · {format_money(record['amount'])} · Tartib: {record['sort_order']}"
             elif self.resource == 'users':
-                text += f" · {record['username']} · {record['role']}"
+                text += f" · {record['username']} · {record.get('phone') or ''} · " + ('Kassir' if record['role'] == 'CASHIER' else 'Administrator')
             elif self.resource == 'workers':
                 text += f" · {record['phone']}"
             elif self.resource == 'printers':
@@ -128,17 +153,30 @@ class ResourcePage(QWidget):
         if not new and original is None:
             return
         if self.resource == 'products' and original and menu_name(original['name']) == 'osh':
-            window = self.window()
-            if hasattr(window, 'navigate'):
-                window.navigate('osh')
-            else:
-                self.osh_prices()
+            self.portions()
             return
         try:
             dialog = RecordEditor(self.resource, self.client, original, self.on_error, self)
             if dialog.exec():
                 self.load()
                 self.notice.setText('Muvaffaqiyatli saqlandi.')
+        except Exception as error:
+            self.on_error(error)
+
+    def portions(self):
+        from app.ui.admin.portions import PortionsDialog
+        product = self.selected()
+        if product:
+            PortionsDialog(self.client, product, self.on_error, self).exec()
+            self.load()
+
+    def prepare_menu(self):
+        if QMessageBox.question(self, 'Menyu', 'Yetishmayotgan menyuni qo‘shish? Narxlar saqlanadi; yangi narxlarni o‘zingiz kiriting.') != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            result = self.client.post('/api/admin/menu/prepare')
+            self.load()
+            self.notice.setText(result['message'])
         except Exception as error:
             self.on_error(error)
 
@@ -215,7 +253,9 @@ class Dashboard(QWidget):
         button = QPushButton('YANGILASH')
         button.clicked.connect(self.load)
         layout.addWidget(button)
-        layout.addStretch()
+        self.catalog = QListWidget()
+        self.catalog.setWordWrap(True)
+        layout.addWidget(self.catalog, 1)
 
     def load(self):
         try:
@@ -230,6 +270,13 @@ class Dashboard(QWidget):
                 if resource == 'users':
                     lines.append(f"Faol kassirlar: {sum(r['role'] == 'CASHIER' and r['is_active'] for r in rows)}")
             self.summary.setText(lines[0] + '\n' + next(line for line in lines if line.startswith('Faol printerlar')))
+            self.catalog.clear()
+            products = self.client.list_records('products')
+            for category in self.client.list_records('categories'):
+                self.catalog.addItem('— ' + category['name'].upper() + ' —')
+                for product in products:
+                    if product['category_id'] == category['id']:
+                        self.catalog.addItem(product['name'] + (' · Nofaol' if not product['is_active'] else ''))
         except Exception as error:
             self.summary.setText('Backend: ma’lumot yuklanmadi')
             self.on_error(error)

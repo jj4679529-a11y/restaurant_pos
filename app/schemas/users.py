@@ -4,6 +4,8 @@ from app.models.enums import UserRole
 
 
 class UserCreate(BaseModel):
+    phone: str | None = Field(default=None, max_length=32)
+    is_active: bool = True
     name: str = Field(min_length=1, max_length=255)
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=1024)
@@ -26,6 +28,7 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    phone: str | None = Field(default=None, max_length=32)
     name: str | None = Field(default=None, min_length=1, max_length=255)
     username: str | None = Field(default=None, min_length=1, max_length=64)
     password: str | None = Field(default=None, min_length=1, max_length=1024)
@@ -55,6 +58,7 @@ class UserResponse(BaseModel):
 
     id: int
     name: str
+    phone: str | None = None
     username: str
     role: UserRole
     is_active: bool

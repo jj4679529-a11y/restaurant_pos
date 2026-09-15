@@ -14,6 +14,7 @@ from app.models import (
 from app.schemas.orders import OrderCreate, OrderItemAddOnCreate, OrderItemCreate
 from app.services import business_day_service
 from app.services.errors import ServiceError, conflict, not_found
+from app.menu_rules import menu_key, OSH_ADDONS, PIECE_DRINKS
 
 
 def _order_query():
@@ -42,6 +43,8 @@ def _get_active_product(session: Session, product_id: int) -> Product:
 
 
 def _product_price(session: Session, product: Product, item: OrderItemCreate) -> tuple[int, int | None, int | None]:
+    if menu_key(product.name) in PIECE_DRINKS and product.unit_type.value != 'PIECE':
+        raise ServiceError(400, 'piece_price_required', 'Admin must configure this drink with a price per piece')
     if item.manual_price is not None:
         if not product.allows_manual_price:
             raise ServiceError(400, "manual_price_not_allowed", "This product does not allow a manual price")
@@ -71,6 +74,10 @@ def _addon_price(session: Session, product: Product, addon_input: OrderItemAddOn
     addon = session.get(AddOn, addon_input.addon_id)
     if addon is None:
         raise not_found("Add-on")
+    if menu_key(addon.name) in OSH_ADDONS and menu_key(product.name) != 'osh':
+        raise ServiceError(400, 'osh_addon_only', 'This addon is available only for Osh')
+    if menu_key(addon.name) == 'gosht' and (addon_input.manual_price is None or addon_input.manual_price < 5000):
+        raise ServiceError(400, 'gosht_minimum', 'Go‘sht amount must be at least 5000 UZS')
     if not addon.is_active:
         raise ServiceError(400, "inactive_addon", "Add-on is inactive")
     link = session.scalars(

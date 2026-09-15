@@ -15,6 +15,7 @@ from app.api.payments import router as payments_router
 from app.api.printing import router as printing_router
 from app.api.settings import router as settings_router
 from app.api.users import router as users_router
+from app.api.reports import router as reports_router
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(admin_config_router)
@@ -33,3 +34,4 @@ api_router.include_router(orders_router)
 api_router.include_router(payments_router)
 api_router.include_router(printing_router)
 api_router.include_router(users_router)
+api_router.include_router(reports_router)

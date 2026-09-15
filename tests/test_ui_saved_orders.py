@@ -26,7 +26,7 @@ def order(status='PENDING', id=900):
 def test_osh_never_manual_even_if_backend_flag_is_wrong(qt_app, osh, monkeypatch, configured):
     osh['allows_manual_price'] = True
     if not configured:
-        osh['price_options'] = [{'id': 4, 'name': '10000', 'quantity': '1', 'price': 10000, 'is_active': True}]
+        osh['price_options'] = []
     picker = Mock()
     monkeypatch.setattr(NumberDialog, 'money', picker)
     dialog = ProductDialog(osh)

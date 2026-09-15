@@ -4,6 +4,7 @@ import sys
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from app.runtime_paths import configuration_file
 
 
 def _resolve_project_root() -> Path:
@@ -17,7 +18,7 @@ PROJECT_ROOT = _resolve_project_root()
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=PROJECT_ROOT / ".env",
+        env_file=configuration_file(PROJECT_ROOT),
         env_file_encoding="utf-8",
         extra="ignore",
     )

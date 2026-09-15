@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QL
 from app.ui.admin.api import menu_name
 from app.ui.widgets.product_card import product_pixmap
 from app.ui.dialogs.number_dialog import NumberDialog
+from app.menu_rules import PIECE_DRINKS
 
 UNITS = [('Porsiya', 'PORTION'), ('Dona', 'PIECE'), ('Litr', 'LITER'), ('Qo‘lda narx', 'AMOUNT')]
 
@@ -153,12 +154,13 @@ def fields_for(resource, client, original):
             categories = [(c['name'], c['id']) for c in client.list_records('categories')]
             fields.insert(1, ('category_id', 'Kategoriya', categories))
             fields.append(('image_path', 'Rasm', 'readonly'))
+            fields.append(('volume_liters', 'Qadoq hajmi (litr, ixtiyoriy)', 'text'))
         return fields
     if resource == 'workers':
         return named + [('phone', 'Telefon', 'text')] + active
     if resource == 'users':
-        return named + [('username', 'Login', 'text'), ('role', 'Rol', [('Kassir', 'CASHIER'), ('Administrator', 'ADMIN')]),
-                        ('password', 'Yangi parol', 'password')] + (active if original else [])
+        return named + [('phone', 'Telefon', 'text'), ('username', 'Login', 'text'), ('role', 'Rol', [('Kassir', 'CASHIER'), ('Administrator', 'ADMIN')]),
+                        ('password', 'Yangi parol', 'password')] + active
     if resource == 'printers':
         return named + [('terminal_name', 'Terminal', 'text'), ('connection_type', 'Ulanish', [('USB', 'USB'), ('Tarmoq', 'NETWORK')]),
                         ('address', 'Manzil / device', 'text')] + active
@@ -174,8 +176,8 @@ def fields_for(resource, client, original):
                 ('sort_order', 'Tartibi', 'int')] + active
     if resource == 'settings':
         key = original['key']
-        kind = [(key_value, key_value)] if (key_value := {'timezone': 'Asia/Tashkent', 'business_day_start': '06:00'}.get(key)) else 'text'
-        return [('value', key, kind)]
+        labels = {'timezone': 'Vaqt mintaqasi', 'business_day_start': 'Ish kuni boshlanishi (HH:MM)', 'restaurant_name': 'Restoran nomi'}
+        return [('value', labels.get(key, key), 'text')]
     raise ValueError(resource)
 
 
@@ -190,6 +192,14 @@ class RecordEditor(Editor):
         fields = fields_for(resource, client, original)
         super().__init__('Tahrirlash' if original else 'Yangi yozuv', fields, values, self.persist, on_error, parent)
         name = menu_name(values.get('name', ''))
+        if resource == 'products' and name in PIECE_DRINKS | {'manti', 'choy', 'novot'}:
+            self.widgets['unit_type'].setCurrentIndex(self.widgets['unit_type'].findData('PIECE'))
+            self.widgets['unit_type'].setEnabled(False)
+            self.widgets['allows_manual_price'].setChecked(False)
+            self.widgets['allows_manual_price'].setEnabled(False)
+            if values.get('unit_type') == 'LITER':
+                self.widgets['base_price'].setValue(0)
+                self.form.addRow(QLabel('Eski litr narxi saqlanadi. Dona narxini o‘zingiz kiriting va saqlang.'))
         if resource in {'products', 'addons'} and (name in {'osh', 'jizz', 'gosht', 'qazi'} or name.startswith('tuxum')):
             manual = name in {'jizz', 'gosht'}
             self.widgets['allows_manual_price'].setChecked(manual)
@@ -263,6 +273,9 @@ class RecordEditor(Editor):
             raise ValueError('Nomini kiriting')
         if self.resource == 'products':
             data['image_path'] = data['image_path'] or None
+            data['volume_liters'] = data['volume_liters'].replace(',', '.') or None
+            if menu_name(data['name']) in PIECE_DRINKS and data['base_price'] <= 0:
+                raise ValueError('Dona narxini kiriting')
         if self.resource == 'presets':
             target = data.pop('target')
             if not target:

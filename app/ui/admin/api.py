@@ -1,4 +1,5 @@
 from app.ui.api_client import ApiError, PosApiClient
+from app.menu_rules import PIECE_DRINKS
 
 
 RESOURCES = {
@@ -18,6 +19,8 @@ def protect_menu(resource, data, original=None):
     new_name = menu_name(data.get('name', ''))
     if resource == 'products' and new_name == 'gosht':
         raise ValueError('Go‘sht faqat qo‘shimcha bo‘lishi mumkin')
+    if resource == 'products' and new_name in PIECE_DRINKS:
+        data.update(unit_type='PIECE', allows_manual_price=False)
     if resource == 'products' and name in {'osh', 'jizz'}:
         if new_name != name:
             raise ValueError('Osh/Jizz nomini bu oynada o‘zgartirmang')

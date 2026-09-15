@@ -10,6 +10,17 @@ from app.schemas.catalog import (
     PriceOptionUpdate, ProductCreate, ProductUpdate,
 )
 from app.services.errors import ServiceError, conflict, not_found
+from app.menu_rules import menu_key, OSH_ADDONS, PIECE_DRINKS
+
+
+def validate_menu_product(name, unit_type, manual):
+    key = menu_key(name)
+    if key == 'gosht':
+        raise ServiceError(400, 'addon_only', 'Go‘sht is an Osh addon, not a product')
+    if key in PIECE_DRINKS and (unit_type.value != 'PIECE' or manual):
+        raise ServiceError(400, 'piece_price_required', 'Kompot and Ayron require piece pricing')
+    if key == 'jizz' and not manual:
+        raise ServiceError(400, 'manual_price_required', 'Jizz requires cashier-entered amount')
 
 
 def _commit(session: Session, item: object) -> object:
@@ -79,6 +90,7 @@ def get_product(session: Session, product_id: int) -> Product:
 
 
 def create_product(session: Session, data: ProductCreate) -> Product:
+    validate_menu_product(data.name, data.unit_type, data.allows_manual_price)
     category = session.get(Category, data.category_id)
     if category is None:
         raise not_found("Category")
@@ -90,6 +102,8 @@ def update_product(session: Session, product_id: int, data: ProductUpdate) -> Pr
     values = data.model_dump(exclude_unset=True)
     if "category_id" in values and session.get(Category, values["category_id"]) is None:
         raise not_found("Category")
+    validate_menu_product(values.get('name', product.name), values.get('unit_type', product.unit_type),
+                          values.get('allows_manual_price', product.allows_manual_price))
     for field, value in values.items():
         setattr(product, field, value)
     _commit(session, product)
@@ -152,6 +166,8 @@ def update_addon(session: Session, addon_id: int, data: AddOnUpdate) -> AddOn:
 def link_addon(session: Session, product_id: int, addon_id: int) -> ProductAddOn:
     product = get_product(session, product_id)
     addon = get_addon(session, addon_id)
+    if menu_key(addon.name) in OSH_ADDONS and menu_key(product.name) != 'osh':
+        raise ServiceError(400, 'osh_addon_only', 'This addon is available only for Osh')
     if not product.is_active or not addon.is_active:
         raise ServiceError(400, "inactive_catalog_item", "Inactive products or add-ons cannot be linked")
     existing = session.scalars(select(ProductAddOn).where(ProductAddOn.product_id == product_id, ProductAddOn.addon_id == addon_id)).one_or_none()

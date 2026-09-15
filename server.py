@@ -5,6 +5,20 @@ from app.core.config import get_settings
 
 
 def main() -> None:
+    if sys.argv[1:] == ['--migrate']:
+        from pathlib import Path
+        from alembic import command
+        from alembic.config import Config
+        root = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
+        config = Config(str(root / 'alembic.ini'))
+        config.set_main_option('script_location', str(root / 'alembic'))
+        try:
+            command.upgrade(config, 'head')
+        except Exception:
+            print('Migration failed. Check database/configuration; no database reset was performed.', file=sys.stderr)
+            raise SystemExit(1)
+        print('Forward migrations applied successfully.')
+        return
     # Auto-started and manually launched Windows servers share the same mutex.
     # Keep its handle alive for the entire server lifetime (OS releases on exit).
     mutex = None

@@ -11,6 +11,7 @@ def _response(product):
     return {
         **{field: getattr(product, field) for field in ("id", "category_id", "name", "unit_type", "base_price", "allows_manual_price", "is_active")},
         "image_path": product.image_path,
+        "volume_liters": product.volume_liters,
         "manual_price_presets": [preset for preset in product.manual_price_presets if preset.is_active],
         "price_options": product.price_options,
         "available_addons": [

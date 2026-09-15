@@ -135,6 +135,7 @@ class AvailableAddOnResponse(AddOnResponse):
 
 
 class ProductCreate(ImageReference):
+    volume_liters: Decimal | None = Field(default=None, gt=0, max_digits=8, decimal_places=3)
     category_id: int = Field(gt=0)
     name: str = Field(min_length=1, max_length=255)
     unit_type: UnitType
@@ -144,6 +145,7 @@ class ProductCreate(ImageReference):
 
 
 class ProductUpdate(ImageReference):
+    volume_liters: Decimal | None = Field(default=None, gt=0, max_digits=8, decimal_places=3)
     category_id: int | None = Field(default=None, gt=0)
     name: str | None = Field(default=None, min_length=1, max_length=255)
     unit_type: UnitType | None = None
@@ -153,6 +155,7 @@ class ProductUpdate(ImageReference):
 
 
 class ProductResponse(Schema):
+    volume_liters: Decimal | None = None
     id: int
     category_id: int
     name: str

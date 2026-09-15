@@ -39,10 +39,11 @@ def create_user(session: Session, data: UserCreate) -> User:
         session,
         User(
             name=data.name,
+            phone=data.phone,
             username=data.username,
             password_hash=hash_password(data.password),
             role=data.role,
-            is_active=True,
+            is_active=data.is_active,
         ),
     )
 

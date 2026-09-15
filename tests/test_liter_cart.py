@@ -19,7 +19,7 @@ from tests.test_ux_refinement import theme
 
 
 def drink(price=12000):
-    return {'id': 901, 'name': 'Kompot', 'category_id': 1, 'unit_type': 'LITER',
+    return {'id': 901, 'name': 'Legacy litrli mahsulot', 'category_id': 1, 'unit_type': 'LITER',
             'base_price': price, 'allows_manual_price': False, 'price_options': [], 'available_addons': []}
 
 
@@ -96,7 +96,7 @@ def test_light_receipt_and_liter_line(qt_app, theme):
         assert any('0.5 porsiya' in t for t in texts)
         second = widget.items.itemWidget(widget.items.item(1))
         texts = [l.text() for l in second.findChildren(QLabel)]
-        assert 'Kompot — 1.5 L' in texts and '18 000 so‘m' in texts
+        assert 'Legacy litrli mahsulot — 1.5 L' in texts and '18 000 so‘m' in texts
         assert '12 000 so‘m / litr' in texts
         assert not any(b.text() in ('−', '+') for b in second.findChildren(QPushButton))
         widget.items.setCurrentRow(1)

@@ -1,0 +1,81 @@
+MONOBLOCK 1 INSTALLATION — preserve existing configuration and database
+
+1. Folder structure
+Extract RestaurantPOS-Monoblock1.zip into the installation folder:
+C:\RestaurantPOS\app\RestaurantServer.exe
+C:\RestaurantPOS\app\RestaurantPOS.exe
+C:\RestaurantPOS\app\RestaurantAdmin.exe
+C:\RestaurantPOS\app\SHA256.json
+C:\RestaurantPOS\config\
+C:\RestaurantPOS\scripts\
+C:\RestaurantPOS\logs\
+
+2. Where .env goes
+C:\RestaurantPOS\config\.env — the operator's existing file. It is NEVER bundled in the zip.
+The frozen executables read .env from two possible locations:
+- An adjacent .env beside the EXE (legacy support), or
+- config\.env one level above the app folder (preferred for Windows).
+An existing .env beside the EXE takes precedence; otherwise app\*.exe reads ..\config\.env.
+Environment variables override the file. POS2 needs only UI settings, not DATABASE_URL.
+
+3. PostgreSQL requirement
+PostgreSQL 14+ must be installed and running before any application starts.
+The server executable connects via DATABASE_URL from the preserved .env.
+The installer does NOT install PostgreSQL. Use the operator's existing PostgreSQL instance.
+Detect the service name with:
+  Get-CimInstance Win32_Service | Where-Object { $_.PathName -match '(pg_ctl|postgres)\.exe' } | Select-Object Name,State
+
+4. First migration — apply forward Alembic migrations once after closing all old processes:
+  C:\RestaurantPOS\app\RestaurantServer.exe --migrate
+If it fails, STOP and investigate; do not downgrade or reset. The server reads DB settings from .env.
+Verify health before proceeding: http://127.0.0.1:8000/health
+
+5. Server start
+  C:\RestaurantPOS\app\RestaurantServer.exe
+The server listens on 0.0.0.0:8000. Use a separate terminal or run as a Windows service (see step 8).
+The server mutex prevents duplicate instances on Windows.
+
+6. Admin start
+  C:\RestaurantPOS\app\RestaurantAdmin.exe
+Admin is NEVER auto-started by the autostart scripts. Launch it manually from the desktop shortcut or executable.
+Login with the ADMIN_USERNAME/ADMIN_PASSWORD from .env.
+Admin verifies against the server-side /api/users endpoint before granting access.
+
+7. POS start
+  C:\RestaurantPOS\app\RestaurantPOS.exe
+The POS starts the backend automatically if it detects a local server on 127.0.0.1:8000.
+If the backend is not running, the POS shows a startup dialog with retry option.
+Set AUTO_START_WITH_WINDOWS=false in .env to disable the per-user Run-key registration.
+Launch POS once after changing this setting to remove the older registration.
+
+8. Autostart installation
+Elevated Windows PowerShell:
+  C:\RestaurantPOS\scripts\install-autostart.ps1 -InstallDirectory C:\RestaurantPOS -Server -PostgresServiceName postgresql-x64-16 -WhatIf
+  C:\RestaurantPOS\scripts\install-autostart.ps1 -InstallDirectory C:\RestaurantPOS -Server -PostgresServiceName postgresql-x64-16
+On POS2 omit -Server and -PostgresServiceName. The installer:
+- Sets PostgreSQL service to Automatic and starts it
+- Registers per-user logon tasks (Server starts on boot via service; Cashier waits for /health)
+- Tasks retry failures 3 times at 1-minute intervals
+- Admin is never auto-launched
+- Adds ONLY TCP 8000/Private/LocalSubnet firewall rule; never TCP 5432
+Set AUTO_START_WITH_WINDOWS=false to avoid the older Run-key mechanism.
+
+9. Update procedure
+Close all applications normally; retain staged download:
+  C:\RestaurantPOS\scripts\update.ps1 -InstallDirectory C:\RestaurantPOS -ReleaseDirectory C:\POSRelease\RestaurantPOS -Server -WhatIf
+  C:\RestaurantPOS\scripts\update.ps1 -InstallDirectory C:\RestaurantPOS -ReleaseDirectory C:\POSRelease\RestaurantPOS -Server
+On POS2 omit -Server. Only the three executables are replaced, after SHA256 verification and backup.
+The updater creates binary-backups\ with timestamps. It does NOT replace config, scripts, logs, media, users, orders, settings, or database data.
+Forward migration runs on server only. Script updates must be reviewed separately. Never extract a release over config.
+
+10. Rollback procedure
+If the update fails or is unacceptable:
+  Copy-back the three executables from C:\RestaurantPOS\app\binary-backups\<timestamp>\ to C:\RestaurantPOS\app\
+Do NOT roll back the database. The updater runs forward migrations only; never downgrade the database.
+Re-apply the update after resolving the issue, or continue with the previous executables.
+If the server executable was replaced with a newer migration already applied, the server will still work.
+If the POS executable is rolled back, it may not support newer API fields; restart it after server rollback.
+
+Before live use: verify login, catalog, save/pay, reporting, and two-terminal LAN.
+Check 1366x768 at actual Windows display scaling and restart persistence.
+Physical printer acceptance is outside this packaging phase.

@@ -3,6 +3,7 @@
 block_cipher = None
 
 from PyInstaller.utils.hooks import collect_all
+from pathlib import Path
 
 psycopg_datas, psycopg_binaries, psycopg_hiddenimports = collect_all("psycopg")
 
@@ -14,6 +15,9 @@ a = Analysis(
     ],
     datas=[
         *psycopg_datas,
+        ('alembic.ini', '.'),
+        ('alembic/env.py', 'alembic'),
+        *[(str(path), 'alembic/versions') for path in Path('alembic/versions').glob('*.py')],
     ],
     hiddenimports=[
         'main',
@@ -26,6 +30,8 @@ a = Analysis(
         'httpx._utils',
         *psycopg_hiddenimports,
         'app.api.router',
+        'app.api.reports',
+        'app.services.final_menu_service',
         'app.api.health',
         'app.api.auth',
         'app.api.settings',

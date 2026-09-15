@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QButtonGroup, QDialog, QGridLayout, QHBoxLayout, Q
 from app.ui.dialogs.number_dialog import NumberDialog
 from app.ui.state import CartAddOn, CartItem, CartValidationError, format_money, format_quantity
 from app.ui.dialogs.volume_dialog import VolumeDialog
+from app.menu_rules import menu_key, PIECE_DRINKS
 
 
 class ProductDialog(QDialog):
@@ -13,7 +14,7 @@ class ProductDialog(QDialog):
         super().__init__(parent)
         self.product = product
         self.is_osh = product['name'].strip().casefold() == 'osh'
-        self.is_liter = product.get('unit_type') == 'LITER'
+        self.is_liter = product.get('unit_type') == 'LITER' and menu_key(product['name']) not in PIECE_DRINKS
         self.quantity = existing.quantity if existing else Decimal(1)
         self.option = None
         self.manual_price = existing.manual_price if existing else None
@@ -35,11 +36,10 @@ class ProductDialog(QDialog):
         body = QVBoxLayout(content)
         options = [o for o in product.get("price_options", []) if o.get("is_active", True)]
         if self.is_osh:
-            options = [o for o in options if str(o.get('name', '')).strip() in {'0.5 porsiya', '1 porsiya'}
-                       and Decimal(str(o.get('quantity', 0))) in {Decimal('0.5'), Decimal('1')} and o.get('price', 0) > 0]
+            options = [o for o in options if Decimal(str(o.get('quantity', 0))) > 0 and o.get('price', 0) > 0]
             options.sort(key=lambda o: Decimal(str(o['quantity'])))
             # Ambiguous/missing configuration must not offer a price fallback.
-            if len(options) != 2 or {Decimal(str(o['quantity'])) for o in options} != {Decimal('0.5'), Decimal('1')}:
+            if not options:
                 options = []
                 body.addWidget(QLabel('Osh porsiya narxlari sozlanmagan. Administratorga murojaat qiling.'))
         self.options_group = QButtonGroup(self)
@@ -99,7 +99,8 @@ class ProductDialog(QDialog):
                 selected = CartAddOn(addon["id"], addon["name"], Decimal(1), addon["base_price"])
                 self.addons[addon["id"]] = selected
             if addon.get("allows_manual_price"):
-                presets = [p for p in addon.get('manual_price_presets', []) if p.get('is_active', True)]
+                presets = [p for p in addon.get('manual_price_presets', []) if p.get('is_active', True)
+                           and (menu_key(addon['name']) != 'gosht' or p['amount'] >= 5000)]
                 body.addWidget(QLabel(addon['name']))
                 grid = QGridLayout()
                 for index, preset in enumerate(presets):
@@ -198,6 +199,9 @@ class ProductDialog(QDialog):
             self._set_manual_addon(addon, value)
 
     def _set_manual_addon(self, addon, value):
+        if menu_key(addon['name']) == 'gosht' and value < 5000:
+            QMessageBox.warning(self, 'Go‘sht', 'Eng kam summa: 5 000 so‘m')
+            return
         self.addons[addon['id']] = CartAddOn(addon['id'], addon['name'], Decimal(1), value, value)
         self.addon_labels[addon['id']].setText(format_money(value))
         self._refresh()

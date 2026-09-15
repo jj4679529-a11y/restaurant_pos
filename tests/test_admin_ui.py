@@ -289,9 +289,11 @@ def test_safe_settings_and_unsaved_changes(db, qt_app, admin_http, monkeypatch):
     assert not errors and dialog.saved
     assert next(r for r in client.list_records('settings') if r['key'] == 'restaurant_name')['value'] == 'Restaurant fixture'
     dialog.close()
+    changed = client.request('PATCH', '/api/admin/settings/timezone', {'value': 'UTC'})
+    assert changed['value'] == 'UTC'
     with pytest.raises(ApiError) as error:
-        client.request('PATCH', '/api/admin/settings/timezone', {'value': 'UTC'})
-    assert error.value.status_code == 400
+        client.request('PATCH', '/api/admin/settings/timezone', {'value': 'Invalid/Timezone'})
+    assert error.value.status_code == 422
 
 
 def test_product_editor_rejects_gosht_product(qt_app, admin_http):

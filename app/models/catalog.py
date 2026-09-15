@@ -27,6 +27,7 @@ class Product(TimestampMixin, Base):
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     image_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    volume_liters: Mapped[Decimal | None] = mapped_column(Numeric(8, 3), nullable=True)
     unit_type: Mapped[UnitType] = mapped_column(pg_enum(UnitType, "unit_type"), nullable=False)
     base_price: Mapped[int] = mapped_column(Integer, nullable=False)
     allows_manual_price: Mapped[bool] = mapped_column(

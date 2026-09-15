@@ -45,6 +45,7 @@ class PosMainWindow(QMainWindow):
         self.on_logout = on_logout
         self.on_admin = on_admin
         self.catalog_loading = False
+        self.catalog_initialized = False
         self.catalog_images = {}
         self.cart = Cart()
         self.categories: list[dict[str, Any]] = []
@@ -54,7 +55,7 @@ class PosMainWindow(QMainWindow):
         self.current_order: dict[str, Any] | None = None
         self.payment_uncertain = False
         self.setWindowTitle("Restaurant POS — Kassir")
-        self.setMinimumSize(1024, 700)
+        self.setMinimumSize(980, 600)
         self._build()
         self._start_clock()
         # Defer until the launcher owns/shows this window; an expired session
@@ -94,12 +95,8 @@ class PosMainWindow(QMainWindow):
         root_layout.addWidget(self.delivery_container)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
-        catalog = QWidget()
-        catalog_layout = QVBoxLayout(catalog)
-        catalog_layout.setContentsMargins(0, 0, 0, 0)
-        catalog_layout.addWidget(self._category_panel())
-        catalog_layout.addWidget(self._product_panel(), 1)
-        splitter.addWidget(catalog)
+        splitter.addWidget(self._category_panel())
+        splitter.addWidget(self._product_panel())
         self.cart_widget = CartWidget()
         self.cart_widget.remove_button.clicked.connect(self._remove_selected_cart_item)
         self.cart_widget.clear_button.clicked.connect(self._clear_cart)
@@ -108,9 +105,10 @@ class PosMainWindow(QMainWindow):
         self.cart_widget.edit_button.clicked.connect(self._edit_cart_item)
         splitter.addWidget(self.cart_widget)
         splitter.setChildrenCollapsible(False)
-        splitter.setStretchFactor(0, 7)
-        splitter.setStretchFactor(1, 3)
-        splitter.setSizes([940, 420])
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setStretchFactor(2, 0)
+        splitter.setSizes([200, 700, 430])
         self.splitter = splitter
         root_layout.addWidget(splitter, 1)
 
@@ -177,10 +175,6 @@ class PosMainWindow(QMainWindow):
         self.delivery_button.clicked.connect(lambda: self._set_order_type("DELIVERY"))
         layout.addWidget(label)
         layout.addWidget(self.chaykhana_button)
-        self.takeaway_button = QPushButton("OLIB KETISH")
-        self.takeaway_button.setEnabled(False)
-        self.takeaway_button.setToolTip("Backend hozircha bu buyurtma turini qo‘llamaydi")
-        layout.addWidget(self.takeaway_button)
         layout.addWidget(self.delivery_button)
         layout.addStretch()
         return layout
@@ -194,12 +188,12 @@ class PosMainWindow(QMainWindow):
         self.category_scroll = QScrollArea()
         self.category_scroll.setWidgetResizable(True)
         self.category_content = QWidget()
-        self.category_layout = QHBoxLayout(self.category_content)
+        self.category_layout = QVBoxLayout(self.category_content)
         self.category_layout.addStretch()
         self.category_scroll.setWidget(self.category_content)
         layout.addWidget(self.category_scroll)
-        self.category_scroll.setFixedHeight(78)
-        self.category_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.category_scroll.setMinimumWidth(180)
+        panel.setMaximumWidth(250)
         return panel
 
     def _product_panel(self) -> QWidget:
@@ -289,8 +283,9 @@ class PosMainWindow(QMainWindow):
         self.categories, self.products, self.workers = result[:3]
         self.categories = [c for c in self.categories if c.get('is_active', True)]
         self.catalog_images = result[3] if len(result) > 3 else {}
-        if self.selected_category_id not in {c['id'] for c in self.categories}:
+        if not self.catalog_initialized or self.selected_category_id is not None and self.selected_category_id not in {c['id'] for c in self.categories}:
             self.selected_category_id = self.categories[0]['id'] if self.categories else None
+        self.catalog_initialized = True
         self.catalog_retry.hide()
         self._render_categories()
         self.connection_label.setText("Server: ulangan")

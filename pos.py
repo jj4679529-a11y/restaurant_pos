@@ -1,4 +1,6 @@
 import sys
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QGuiApplication
 
 from PySide6.QtWidgets import QApplication, QMessageBox, QDialog
 
@@ -67,6 +69,7 @@ class PosApplication:
 
 
 def main() -> int:
+    QGuiApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     app = QApplication(sys.argv)
     app.setStyleSheet(APP_STYLESHEET)
     try:

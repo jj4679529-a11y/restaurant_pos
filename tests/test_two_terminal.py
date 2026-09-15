@@ -38,7 +38,7 @@ def terminals(monkeypatch):
         category_id, product_id = category.id, product.id
         db.commit()
     # Isolate the date, not the business-day creation/locking implementation.
-    monkeypatch.setattr(business_day_service, 'get_current_business_date', lambda now=None: day)
+    monkeypatch.setattr(business_day_service, 'get_current_business_date', lambda now=None, session=None: day)
     assert not app.dependency_overrides
     try:
         with ExitStack() as stack:

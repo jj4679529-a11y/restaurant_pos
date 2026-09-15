@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from decimal import Decimal, InvalidOperation
 from typing import Any
+from app.menu_rules import menu_key, PIECE_DRINKS
 
 
 def format_money(amount: int) -> str:
@@ -48,6 +49,8 @@ class CartAddOn:
 
     @property
     def total_price(self) -> int:
+        if menu_key(self.name) == 'gosht' and (self.manual_price is None or self.manual_price < 5000):
+            raise CartValidationError('Go‘sht eng kam summasi: 5 000 so‘m')
         return _line_total(self.quantity, self.unit_price, self.name)
 
     def to_payload(self) -> dict[str, Any]:
@@ -89,6 +92,8 @@ class CartItem:
         manual_price: int | None = None,
         addons: tuple[CartAddOn, ...] = (),
     ) -> "CartItem":
+        if menu_key(product['name']) in PIECE_DRINKS and product.get('unit_type') != 'PIECE':
+            raise CartValidationError('Admin bu ichimlik uchun dona narxini sozlashi kerak')
         if price_option is not None:
             unit_price = int(price_option["price"])
             selected_price_option_id = int(price_option["id"])

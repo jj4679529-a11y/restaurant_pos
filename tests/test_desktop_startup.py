@@ -23,7 +23,13 @@ def test_local_server_detection(url, expected):
 
 
 @pytest.mark.parametrize('value,expected', [('true', True), ('false', False)])
-def test_windows_autostart_config(value, expected):
+def test_windows_autostart_config(value, expected, tmp_path):
+    from app.runtime_paths import configuration_file
+    application = tmp_path / 'app'
+    application.mkdir()
+    assert configuration_file(application) == tmp_path / 'config' / '.env'
+    (application / '.env').touch()
+    assert configuration_file(application) == application / '.env'
     settings = UiSettings(_env_file=None, AUTO_START_WITH_WINDOWS=value)
     assert settings.AUTO_START_WITH_WINDOWS is expected
     assert not hasattr(settings, 'DATABASE_URL')
