@@ -15,7 +15,7 @@ jobs:
         image: postgres:14
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
           POSTGRES_DB: restaurant_pos
         ports:
           - 5432:5432
@@ -44,7 +44,7 @@ jobs:
       - name: Configure DATABASE_URL
         shell: bash
         run: |
-          echo "DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/restaurant_pos" >> $GITHUB_ENV
+          echo "DATABASE_URL=postgresql+psycopg2://postgres@localhost:5432/restaurant_pos" >> $GITHUB_ENV
           echo "DEBUG=false" >> $GITHUB_ENV
           echo "QT_QPA_PLATFORM=offscreen" >> $GITHUB_ENV
 
@@ -166,24 +166,35 @@ jobs:
           Copy-Item scripts/update_windows.ps1 dist/
           Copy-Item scripts/install_autostart_windows.ps1 dist/
           Copy-Item scripts/start-runtime.ps1 dist/
+          Copy-Item scripts/test-deployment.ps1 dist/
+          Copy-Item scripts/cleanup_client_transactions.ps1 dist/
+          Copy-Item version.json dist/
 
       - name: Prepare Monoblock 1 installation package
         shell: pwsh
         run: |
           $root = 'dist/RestaurantPOS'
-          foreach ($folder in @('app', 'config', 'scripts', 'logs')) {
+          foreach ($folder in @('app', 'config', 'scripts', 'logs', 'media', 'backups')) {
             New-Item -ItemType Directory -Path "$root/$folder" -Force | Out-Null
           }
           foreach ($name in @('RestaurantServer.exe', 'RestaurantPOS.exe', 'RestaurantAdmin.exe', 'SHA256.json')) {
             Copy-Item "dist/$name" "$root/app/"
           }
-          Copy-Item scripts/install_autostart_windows.ps1 "$root/scripts/install-autostart.ps1"
-          Copy-Item scripts/update_windows.ps1 "$root/scripts/update.ps1"
-          Copy-Item scripts/start-runtime.ps1 "$root/scripts/"
+          foreach ($name in @('update_windows.ps1', 'install_autostart_windows.ps1', 'start-runtime.ps1', 'test-deployment.ps1', 'cleanup_client_transactions.ps1')) {
+            Copy-Item "scripts/$name" "$root/scripts/$name"
+          }
+          Copy-Item version.json "$root/version.json"
           Copy-Item docs/monoblock1-install.txt "$root/INSTALL.txt"
           Set-Content "$root/config/README.txt" 'Preserve your existing .env here. No secrets are included in this package.'
           Set-Content "$root/logs/README.txt" 'Reserved for operator diagnostics. Preserve across updates.'
           Compress-Archive -Path $root -DestinationPath dist/RestaurantPOS-Monoblock1.zip
+
+      - name: Upload versioned deployment package
+        uses: actions/upload-artifact@v4
+        with:
+          name: restaurant-pos-deployment
+          path: dist/RestaurantPOS
+          if-no-files-found: error
 
       - name: Upload Monoblock 1 installation package
         uses: actions/upload-artifact@v4

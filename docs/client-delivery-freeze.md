@@ -8,19 +8,30 @@
    `pip install pyinstaller`, then `python -m PyInstaller --noconfirm --clean`
    with `server.spec`, `pos.spec`, and `admin.spec`, separately). GitHub Actions
    does the same and creates `SHA256.json` for the three executables.
-3. Copy only binaries via `scripts/update_windows.ps1`. On the server:
+3. For normal client updates, authenticate GitHub CLI once on Monoblock 1 with
+   `gh auth login`, then run one command from the installed package:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\RestaurantPOS\scripts\update_windows.ps1
+```
+
+   The updater downloads the latest successful authenticated Windows deployment
+   artifact, compares `version.json`, backs up replaceable files, applies only
+   forward migrations, checks local health, and opens POS. It never copies or
+   deletes `config/.env`, media, logs, PostgreSQL files, or restaurant data.
+   For a reviewed offline release folder, use:
 
 ```powershell
 .\update_windows.ps1 -InstallDirectory C:\RestaurantPOS -ReleaseDirectory C:\POSRelease -Server -WhatIf
 .\update_windows.ps1 -InstallDirectory C:\RestaurantPOS -ReleaseDirectory C:\POSRelease -Server
 ```
 
-Use actual detected folders, not those example paths. On POS2 omit `-Server`.
-The updater validates SHA256, refuses running binaries, creates recoverable binary
-backups, replaces only three allowlisted executables, and on POS1 runs
+Use actual detected folders, not those example paths. The updater validates SHA256,
+creates recoverable binary backups, replaces only allowlisted application files and
+scripts, and on POS1 runs
 `RestaurantServer.exe --migrate`. It does not delete any database/config/media.
-SHA256 validates integrity, not publisher identity: obtain the release from the
-trusted project Actions run. Do not downgrade the database on update failure.
+SHA256 validates integrity, not publisher identity. Do not downgrade the database
+on update failure.
 
 4. `RestaurantServer.exe --migrate` supports source-free Windows installation and
    applies only forward Alembic changes. It does not seed or reset data.
