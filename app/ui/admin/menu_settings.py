@@ -1,6 +1,7 @@
 """Restaurant-facing editors over the existing catalog API (no pricing logic)."""
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
                               QSpinBox, QFormLayout, QDialog, QScrollArea, QMessageBox)
+from PySide6.QtWidgets import QScroller
 
 from app.ui.admin.api import menu_name
 from app.ui.admin.forms import Editor
@@ -19,6 +20,7 @@ class QuickPricesDialog(QDialog):
         layout.addWidget(QLabel(target['name'] + '\nNarxni kassir kiritadi'))
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        QScroller.grabGesture(scroll.viewport(), QScroller.ScrollerGestureType.TouchGesture)
         content = QWidget()
         self.rows = QVBoxLayout(content)
         scroll.setWidget(content)
@@ -42,6 +44,10 @@ class QuickPricesDialog(QDialog):
             item = self.rows.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+        # The final menu has four touch-friendly quick choices, never an unbounded list.
+        records = records[:4]
+        self.add_button.setEnabled(len(records) < 4)
+        self.add_button.setToolTip('Ko‘pi bilan 4 ta tezkor narx')
         for record in records:
             row = QWidget()
             line = QHBoxLayout(row)

@@ -3,6 +3,7 @@ from typing import Any
 from decimal import Decimal
 
 from PySide6.QtCore import QTimer, Qt
+from PySide6.QtWidgets import QScroller
 from PySide6.QtWidgets import (
     QButtonGroup,
     QComboBox,
@@ -191,6 +192,7 @@ class PosMainWindow(QMainWindow):
         self.category_layout = QVBoxLayout(self.category_content)
         self.category_layout.addStretch()
         self.category_scroll.setWidget(self.category_content)
+        QScroller.grabGesture(self.category_scroll.viewport(), QScroller.ScrollerGestureType.TouchGesture)
         layout.addWidget(self.category_scroll)
         self.category_scroll.setMinimumWidth(180)
         panel.setMaximumWidth(250)
@@ -214,6 +216,7 @@ class PosMainWindow(QMainWindow):
         self.product_content = QWidget()
         self.product_grid = QGridLayout(self.product_content)
         self.product_scroll.setWidget(self.product_content)
+        QScroller.grabGesture(self.product_scroll.viewport(), QScroller.ScrollerGestureType.TouchGesture)
         layout.addWidget(self.product_scroll)
         return panel
 

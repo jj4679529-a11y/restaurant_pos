@@ -9,6 +9,7 @@ import pytest
 from PySide6.QtCore import QBuffer, QIODevice
 from PySide6.QtGui import QColor, QPixmap
 from PySide6.QtWidgets import QApplication, QMessageBox, QPushButton
+from PySide6.QtWidgets import QScroller
 
 from app.ui.api_client import ApiConnectionError
 from app.ui.checkout import pay_and_print, print_paid_order
@@ -67,6 +68,16 @@ def test_admin_price_change_is_loaded_dynamically(qt_app, osh):
     dialog.options_group.buttons()[0].click()
     assert dialog._item().unit_price == 19500
     assert "19 500" in dialog.total.text()
+    dialog.close()
+
+
+def test_modifier_dialog_has_touch_scroller_and_limits_manual_presets(qt_app):
+    product = {'id': 9, 'name': 'Jizz', 'unit_type': 'AMOUNT', 'base_price': 0,
+               'allows_manual_price': True,
+               'manual_price_presets': [{'amount': 10000 + i, 'is_active': True} for i in range(6)]}
+    dialog = ProductDialog(product)
+    assert len([b for b in dialog.findChildren(QPushButton) if 'so‘m' in b.text()]) == 4
+    assert QScroller.scroller(dialog.findChild(__import__('PySide6.QtWidgets', fromlist=['QScrollArea']).QScrollArea).viewport())
     dialog.close()
 
 

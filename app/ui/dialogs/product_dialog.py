@@ -1,7 +1,7 @@
 from decimal import Decimal
 from PySide6.QtCore import Qt
 
-from PySide6.QtWidgets import QButtonGroup, QDialog, QGridLayout, QHBoxLayout, QLabel, QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QButtonGroup, QDialog, QGridLayout, QHBoxLayout, QLabel, QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget, QScroller
 
 from app.ui.dialogs.number_dialog import NumberDialog
 from app.ui.state import CartAddOn, CartItem, CartValidationError, format_money, format_quantity
@@ -30,6 +30,7 @@ class ProductDialog(QDialog):
         layout.addWidget(title)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        QScroller.grabGesture(scroll.viewport(), QScroller.ScrollerGestureType.TouchGesture)
         content = QWidget()
         # Keep labels readable under macOS dark-mode native scroll palettes.
         content.setStyleSheet('background: #f3f5f2;')
@@ -56,7 +57,8 @@ class ProductDialog(QDialog):
                 self.option = option
         if product.get("allows_manual_price") and not self.is_osh:
             grid = QGridLayout()
-            for index, preset in enumerate(p for p in product.get('manual_price_presets', []) if p.get('is_active', True)):
+            # Jizz is deliberately the only standalone manually priced item; show no more than four owner presets.
+            for index, preset in enumerate([p for p in product.get('manual_price_presets', []) if p.get('is_active', True)][:4]):
                 choice = QPushButton(format_money(preset['amount']))
                 choice.clicked.connect(lambda _=False, amount=preset['amount']: self._set_product_price(amount))
                 grid.addWidget(choice, index // 3, index % 3)
@@ -100,7 +102,7 @@ class ProductDialog(QDialog):
                 self.addons[addon["id"]] = selected
             if addon.get("allows_manual_price"):
                 presets = [p for p in addon.get('manual_price_presets', []) if p.get('is_active', True)
-                           and (menu_key(addon['name']) != 'gosht' or p['amount'] >= 5000)]
+                           and (menu_key(addon['name']) != 'gosht' or p['amount'] >= 5000)][:4]
                 body.addWidget(QLabel(addon['name']))
                 grid = QGridLayout()
                 for index, preset in enumerate(presets):
