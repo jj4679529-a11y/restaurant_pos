@@ -7,7 +7,7 @@ QPushButton { background: #fffdf7; color: #193b2d; border: 1px solid #d6e2d3; bo
 QPushButton:hover { background: #e3efe1; }
 QPushButton:checked { background: #23654b; color: white; }
 QPushButton:pressed { background: #c9ded0; }
-QPushButton[primary="true"] { background: #23654b; color: white; font-weight: 600; }
+QPushButton[primary="true"], QPushButton[role="primary"], QPushButton[role="success"] { background: #23654b; color: white; font-weight: 700; }
 QPushButton:disabled { background: #e5e8e4; color: #7a837d; border-color: #e0e4df; }
 QPushButton[danger="true"] { color: #a34242; }
 QToolButton#productCard { background: #fffdf7; border: 1px solid #d6e2d3; border-radius: 18px; padding: 8px; font-size: 17px; font-weight: 600; }
@@ -25,14 +25,13 @@ QListWidget::item { padding: 4px; border-bottom: 1px solid #e5ebe7; }
 QListWidget::item:selected { background: #d5e5da; color: #253934; }
 QLabel#dialogTitle { font-size: 28px; font-weight: 800; color: #174533; }
 QLabel#sectionTitle { font-size: 20px; font-weight: 800; color: #174533; }
-QPushButton[role="primary"], QPushButton[role="success"] { background: #23654b; color: white; font-weight: 700; }
 QPushButton[role="secondary"] { background: #e8efeb; }
 QPushButton[role="danger"] { color: #a34242; border-color: #a34242; }
 QPushButton[role="category"] { padding: 2px 18px; }
 QPushButton[role="category"]:checked, QPushButton[role="category-selected"] { background: #23654b; color: white; }
 QPushButton[role="admin-navigation"] { text-align: left; padding-left: 12px; }
 QWidget[role="order-card"] { background: white; border-radius: 8px; }
-QToolButton[role="product-card"]:disabled { color: #7a837d; background: #e5e8e4; }
+QToolButton#productCard:disabled { color: #7a837d; background: #e5e8e4; }
 QLineEdit, QComboBox, QListWidget, QDoubleSpinBox, QSpinBox { background: white; border: 1px solid #cbd5e1; border-radius: 6px; min-height: 42px; padding: 4px 8px; }
 QLabel#totalLabel { color: #253934; padding: 8px; font-size: 32px; font-weight: 700; }
 QLabel#statusLabel { color: #334155; font-weight: 600; padding: 6px; }

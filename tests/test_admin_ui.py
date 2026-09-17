@@ -39,6 +39,7 @@ def dispose_test_windows(qt_app):
 def admin_http(db, monkeypatch):
     from fastapi.testclient import TestClient
     monkeypatch.setattr(QMessageBox, 'question', lambda *a, **kw: QMessageBox.StandardButton.Yes)
+    monkeypatch.setattr(QMessageBox, 'warning', lambda *a, **kw: None)
     username = 'admin-ui-' + uuid4().hex
     admin = create_test_user(db, name='UI Admin', username=username)
     cashier = create_test_user(db, name='UI Cashier', username='cashier-' + uuid4().hex, role=UserRole.CASHIER)
