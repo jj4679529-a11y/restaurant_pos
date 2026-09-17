@@ -21,7 +21,8 @@ class ResourcePage(QWidget):
         layout.addWidget(QLabel(TITLES[resource]))
         if resource in {'products', 'categories', 'addons', 'presets'}:
             sections = QHBoxLayout()
-            for key, title in [('products', 'Mahsulotlar'), ('categories', 'Guruhlar'), ('addons', 'Qo‘shimchalar'), ('presets', 'Tezkor narxlar')]:
+            # Owner-facing menu intentionally exposes only two simple sections.
+            for key, title in [('products', 'Umumiy mahsulotlar'), ('categories', 'Guruhlar')]:
                 button = QPushButton(title)
                 button.clicked.connect(lambda _=False, k=key: self.window().navigate(k) if hasattr(self.window(), 'navigate') else None)
                 sections.addWidget(button)

@@ -1,5 +1,5 @@
 from PySide6.QtCore import QDate
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QDateEdit, QPushButton, QTextBrowser
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QDateEdit, QPushButton, QTextBrowser, QComboBox, QLabel
 from app.ui.state import format_money
 
 
@@ -11,8 +11,18 @@ class ReportsPage(QWidget):
         self.date.setCalendarPopup(True)
         self.date.setDisplayFormat('yyyy-MM-dd')
         self.date.setMinimumHeight(48)
+        self.period = QComboBox()
+        self.period.addItems(['Kunlik', 'Haftalik', 'Oylik'])
+        self.order_type = QComboBox()
+        self.order_type.addItem('Umumiy', None)
+        self.order_type.addItem('Choyxonada', 'CHAYKHANA')
+        self.order_type.addItem('Yetkazib berish', 'DELIVERY')
         layout = QVBoxLayout(self)
         bar = QHBoxLayout()
+        bar.addWidget(QLabel('Davr:'))
+        bar.addWidget(self.period)
+        bar.addWidget(QLabel('Turi:'))
+        bar.addWidget(self.order_type)
         bar.addWidget(self.date)
         load = QPushButton('KUNLIK HISOBOT')
         load.clicked.connect(lambda: self.load(self.date.date().toString('yyyy-MM-dd')))
@@ -26,10 +36,13 @@ class ReportsPage(QWidget):
 
     def load(self, business_date=None):
         try:
-            suffix = f'?business_date={business_date}' if business_date else ''
+            params = [f'period={self.period.currentText().lower()}', f'order_type={self.order_type.currentData() or ""}']
+            if business_date:
+                params.append(f'business_date={business_date}')
+            suffix = '?' + '&'.join(params)
             data = self.client.get('/api/admin/reports/daily' + suffix)
             self.date.setDate(QDate.fromString(data['business_date'], 'yyyy-MM-dd'))
-            lines = [f"KUNLIK HISOBOT — {data['business_date']}", f"Barcha buyurtmalar: {data['total_order_count']}",
+            lines = [f"{self.period.currentText().upper()} HISOBOT — {data['business_date']}", f"Buyurtmalar: {data['total_order_count']}",
                      f"To‘langan: {data['paid_order_count']} / {format_money(data['total_paid_amount'])}",
                      'Choyxonada: ' + format_money(data['by_order_type']['CHAYKHANA']),
                      'Yetkazib berish: ' + format_money(data['by_order_type']['DELIVERY'])]

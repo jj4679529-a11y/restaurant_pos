@@ -52,7 +52,10 @@ class AdminWindow(QMainWindow):
             self.stack.addWidget(page)
             if key in {'categories', 'osh', 'addons', 'presets'}:
                 continue
-            button = QPushButton('Hisobotlar' if key == 'reports' else 'Dashboard' if key == 'dashboard' else TITLES[key])
+            label = {'products': 'Menyu', 'workers': 'Yetkazib beruvchilar', 'users': 'Kassirlar',
+                     'printers': 'Printerlar', 'settings': 'Sozlamalar', 'reports': 'Hisobotlar',
+                     'dashboard': 'Dashboard'}[key]
+            button = QPushButton(label)
             button.setFixedHeight(48)
             button.setCheckable(True)
             button.setProperty('role', 'admin-navigation')
@@ -60,7 +63,10 @@ class AdminWindow(QMainWindow):
             button.clicked.connect(lambda _=False, value=key: self.navigate(value))
             nav.addWidget(button)
         nav.addStretch()
-        logout = QPushButton('← Kassaga qaytish' if embedded else 'CHIQISH')
+        back = QPushButton('← Kassaga qaytish')
+        back.clicked.connect(self.logout)
+        nav.addWidget(back)
+        logout = QPushButton('CHIQISH')
         logout.clicked.connect(self.logout)
         nav.addWidget(logout)
         layout.addWidget(nav_panel)

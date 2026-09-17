@@ -282,6 +282,8 @@ class PosMainWindow(QMainWindow):
             return
         self.categories, self.products, self.workers = result[:3]
         self.categories = [c for c in self.categories if c.get('is_active', True)]
+        # Touch menu order is intentional: all items, Milliy taomlar, then the owner order.
+        self.categories.sort(key=lambda c: (0 if str(c['name']).casefold() == 'milliy taomlar' else 1, str(c['name']).casefold()))
         self.catalog_images = result[3] if len(result) > 3 else {}
         if not self.catalog_initialized or self.selected_category_id is not None and self.selected_category_id not in {c['id'] for c in self.categories}:
             self.selected_category_id = self.categories[0]['id'] if self.categories else None
@@ -310,6 +312,7 @@ class PosMainWindow(QMainWindow):
     def _render_categories(self) -> None:
         self._clear_layout(self.category_layout)
         all_button = QPushButton("BARCHASI")
+        all_button.setProperty('role', 'category')
         all_button.setCheckable(True)
         all_button.setChecked(self.selected_category_id is None)
         all_button.clicked.connect(lambda: self._select_category(None))
