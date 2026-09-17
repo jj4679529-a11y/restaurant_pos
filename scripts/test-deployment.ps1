@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 function Assert-Pass([string]$msg) { Write-Host "PASS: $msg" }
 function Assert-Fail([string]$msg) { Write-Error "FAIL: $msg"; exit 1 }
 
-foreach ($name in @('install_autostart_windows.ps1', 'update_windows.ps1', 'start-runtime.ps1', 'test-deployment.ps1')) {
+foreach ($name in @('install_autostart_windows.ps1', 'update_windows.ps1', 'start-runtime.ps1', 'cleanup_client_transactions.ps1', 'test-deployment.ps1')) {
     $tokens = $null; $parseErrors = $null
     [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot $name), [ref]$tokens, [ref]$parseErrors) | Out-Null
     if ($parseErrors.Count) { Assert-Fail "PowerShell parse failed: $name" }
@@ -65,6 +65,17 @@ foreach ($name in @('install_autostart_windows.ps1', 'update_windows.ps1', 'star
     }
     Assert-Pass "No destructive DB commands in $name"
 }
+
+# Cleanup is intentionally destructive, but manual-only and constrained to a fixed
+# transactional allowlist. This test never invokes it or connects to PostgreSQL.
+$cleanup = Get-Content (Join-Path $PSScriptRoot 'cleanup_client_transactions.ps1') -Raw
+if ($cleanup -notmatch "DELETE TEST TRANSACTIONS" -or $cleanup -notmatch 'pg_dump' -or $cleanup -notmatch 'BEGIN;' -or $cleanup -notmatch 'COMMIT;') {
+    Assert-Fail 'Cleanup safety controls are missing'
+}
+if ($cleanup -match 'DELETE\s+FROM\s+(users|categories|products|price_options|add_ons|product_addons|manual_price_presets|delivery_workers|printers|settings|business_days|alembic_version)') {
+    Assert-Fail 'Cleanup targets a protected table'
+}
+Assert-Pass 'Cleanup is manual-only, backup-gated, transactional, and allowlisted'
 
 $realInstall = $args[0]
 if ($realInstall) {

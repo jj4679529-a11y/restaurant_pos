@@ -53,6 +53,8 @@ stored passwords. Set `AUTO_START_WITH_WINDOWS=false` and launch POS once to rem
 the older Run-key registration when using these tasks. The only added firewall
 rule allows TCP 8000 from LocalSubnet on Private networks. No 5432 rule is created;
 review existing firewall rules separately. PostgreSQL remains its normal service.
+The installer also creates per-user Desktop and Start Menu shortcuts for
+`RestaurantPOS.exe` and `RestaurantAdmin.exe`; it does not auto-open Admin.
 
 ## Acceptance / non-claims
 
@@ -76,3 +78,22 @@ review existing firewall rules separately. PostgreSQL remains its normal service
 - The existing ESC/POS adapter is still unconfigured: physical printing is **not
   certified** by mocked tests. Hardware acceptance and Windows builds must succeed
   before CLIENT READY can be YES.
+
+## Final transactional test-data cleanup
+
+Only after the client has accepted all testing, stop `RestaurantServer.exe` and
+run this on Monoblock 1. It requires the exact quoted confirmation phrase
+`DELETE TEST TRANSACTIONS`, takes a PostgreSQL custom-format backup first, then deletes only transactional rows:
+orders, order items/addons, payments, print jobs, Telegram outbox rows and
+test-only output rows. It preserves business-day configuration, schema, menu/catalog, presets, images,
+users, workers, printers and settings. It verifies that catalog/users/settings
+remain and that orders/payments are empty before reporting success.
+
+```powershell
+.\cleanup_client_transactions.ps1 -InstallDirectory C:\RestaurantPOS -ConfirmCleanup 'DELETE TEST TRANSACTIONS' -WhatIf
+.\cleanup_client_transactions.ps1 -InstallDirectory C:\RestaurantPOS -ConfirmCleanup 'DELETE TEST TRANSACTIONS' -Confirm
+```
+
+The backup is written to `C:\RestaurantPOS\backups` by default. Keep it until
+handoff is accepted; restore it with the restaurant's established PostgreSQL
+restore procedure if cleanup was invoked too early.

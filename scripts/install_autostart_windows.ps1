@@ -47,9 +47,36 @@ foreach ($name in $executables) {
         Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
     }
 }
+
+# Per-user launchers make the two desktop applications available without opening
+# installation folders. They are shortcuts only; no credentials/configuration is copied.
+$shortcutTargets = @{
+    'Restaurant POS.lnk' = Join-Path $binaryRoot 'RestaurantPOS.exe'
+    'Restaurant Admin.lnk' = Join-Path $binaryRoot 'RestaurantAdmin.exe'
+}
+$desktop = [Environment]::GetFolderPath([Environment+SpecialFolder]::DesktopDirectory)
+$startMenu = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::StartMenu)) 'Programs\Restaurant POS'
+foreach ($directory in @($desktop, $startMenu)) {
+    if (!(Test-Path -LiteralPath $directory) -and $PSCmdlet.ShouldProcess($directory, 'Create per-user shortcut directory')) {
+        New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    }
+}
+if ($PSCmdlet.ShouldProcess('Restaurant POS desktop and Start Menu shortcuts', 'Create or update per-user launchers')) {
+    $shell = New-Object -ComObject WScript.Shell
+    foreach ($entry in $shortcutTargets.GetEnumerator()) {
+        if (!(Test-Path -LiteralPath $entry.Value -PathType Leaf)) { throw "Missing executable for shortcut: $($entry.Value)" }
+        foreach ($directory in @($desktop, $startMenu)) {
+            $shortcut = $shell.CreateShortcut((Join-Path $directory $entry.Key))
+            $shortcut.TargetPath = $entry.Value
+            $shortcut.WorkingDirectory = $binaryRoot
+            $shortcut.IconLocation = $entry.Value
+            $shortcut.Save()
+        }
+    }
+}
 if ($Server -and !(Get-NetFirewallRule -Name 'RestaurantPOS-API-Private' -ErrorAction SilentlyContinue)) {
     if ($PSCmdlet.ShouldProcess('TCP 8000 / Private / LocalSubnet', 'Create API-only firewall rule')) {
         New-NetFirewallRule -Name 'RestaurantPOS-API-Private' -DisplayName 'Restaurant POS API (Private LAN)' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8000 -Profile Private -RemoteAddress LocalSubnet | Out-Null
     }
 }
-Write-Host 'Configured login startup. No PostgreSQL LAN rule was added. Use AUTO_START_WITH_WINDOWS=false to avoid duplicate Run-key startup.'
+Write-Host 'Configured login startup and per-user POS/Admin shortcuts. No PostgreSQL LAN rule was added. Use AUTO_START_WITH_WINDOWS=false to avoid duplicate Run-key startup.'
