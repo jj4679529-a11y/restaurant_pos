@@ -117,6 +117,7 @@ class Editor(QDialog):
         )
 
         content = QWidget()
+        content.setObjectName("adminFormPanel")
         self.form = QFormLayout(content)
         self.form.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow
@@ -139,7 +140,7 @@ class Editor(QDialog):
                     widget.setCurrentIndex(index)
 
             elif kind == "bool":
-                widget = QCheckBox("Faol / Ha")
+                widget = QCheckBox("Sotuvda")
                 widget.setChecked(bool(value if value is not None else True))
                 widget.setMinimumHeight(52)
 
@@ -172,7 +173,7 @@ class Editor(QDialog):
                 row = QHBoxLayout()
                 row.addWidget(widget, 1)
 
-                keypad = QPushButton("NARX KIRITISH")
+                keypad = QPushButton("NARXNI KIRITISH")
                 keypad.setMinimumHeight(52)
                 keypad.clicked.connect(
                     lambda _=False, field=widget: self.money_keypad(field)
@@ -308,7 +309,7 @@ def fields_for(resource, client, original):
         fields = (
             named
             + [
-                ("unit_type", "Hisoblash turi", UNITS),
+                ("unit_type", "Sotish usuli", UNITS),
                 ("base_price", "Sotuv narxi", "money"),
                 (
                     "allows_manual_price",
@@ -762,13 +763,29 @@ class RecordEditor(Editor):
                 self._set_row_visible("volume_liters", False)
             return
 
-        # Unknown/general products: Admin may choose portion/piece,
-        # but cashier manual-price mode is still forbidden.
+        # Unknown/general products: owner may choose only
+        # understandable Dona / Porsiya options.
         if unit_widget:
-            unit_widget.setEnabled(True)
-            if unit_widget.currentData() == "AMOUNT":
-                self._set_unit("PIECE")
+            current = unit_widget.currentData()
 
+            unit_widget.blockSignals(True)
+            unit_widget.clear()
+            unit_widget.addItem("Dona", "PIECE")
+            unit_widget.addItem("Porsiya", "PORTION")
+
+            index = unit_widget.findData(
+                current if current in {"PIECE", "PORTION"} else "PIECE"
+            )
+            unit_widget.setCurrentIndex(
+                index if index >= 0 else 0
+            )
+            unit_widget.blockSignals(False)
+            unit_widget.setEnabled(True)
+
+        self._set_field_label(
+            "unit_type",
+            "Sotish usuli",
+        )
         self._set_row_visible("unit_type", True)
         self._set_row_visible(
             "allows_manual_price",

@@ -20,6 +20,11 @@ from app.ui.dialogs.number_dialog import NumberDialog
 from app.ui.state import format_money
 
 
+def _is_osh_name(value):
+    key = menu_name(value or "")
+    return key == "osh" or key.endswith(" osh")
+
+
 class QuickPricesDialog(QDialog):
     def __init__(self, client, resource, target, on_error, parent=None):
         super().__init__(parent)
@@ -111,7 +116,10 @@ class QuickPricesDialog(QDialog):
 
         for record in visible_records:
             row = QWidget()
+            row.setObjectName("pricePresetCard")
             line = QHBoxLayout(row)
+            line.setContentsMargins(14, 10, 14, 10)
+            line.setSpacing(10)
 
             text = format_money(record["amount"])
 
@@ -119,6 +127,7 @@ class QuickPricesDialog(QDialog):
                 text += " · Nofaol"
 
             label = QLabel(text)
+            label.setObjectName("pricePresetValue")
             line.addWidget(label, 1)
 
             edit = QPushButton("Tahrirlash")
@@ -324,7 +333,7 @@ class OshPage(QWidget):
                 (
                     item
                     for item in products
-                    if menu_name(item["name"]) == "osh"
+                    if _is_osh_name(item["name"])
                     and item.get("is_active", True)
                 ),
                 None,
@@ -374,9 +383,13 @@ class OshPage(QWidget):
 
             for addon in addons:
                 row = QWidget()
+                row.setObjectName("addonPriceCard")
                 line = QHBoxLayout(row)
+                line.setContentsMargins(14, 10, 14, 10)
+                line.setSpacing(10)
 
                 name = QLabel(addon["name"])
+                name.setObjectName("addonPriceName")
                 line.addWidget(name, 1)
 
                 manual = addon.get(

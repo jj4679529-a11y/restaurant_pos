@@ -337,4 +337,43 @@ QListWidget#adminResourceList::item {
     min-height: 54px;
     padding: 8px 12px;
 }
+
+/* ---------- ADMIN EDITOR CARDS ---------- */
+
+QWidget#adminFormPanel {
+    background: #ffffff;
+    border: 1px solid #e4e8e5;
+    border-radius: 14px;
+}
+
+QWidget#pricePresetCard,
+QWidget#addonPriceCard {
+    background: #ffffff;
+    border: 1px solid #e4e8e5;
+    border-radius: 12px;
+}
+
+QLabel#pricePresetValue {
+    color: #1f332a;
+    font-size: 19px;
+    font-weight: 800;
+}
+
+QLabel#addonPriceName {
+    color: #23372e;
+    font-size: 16px;
+    font-weight: 750;
+}
+
+QCheckBox {
+    spacing: 10px;
+    min-height: 48px;
+    font-weight: 650;
+}
+
+QCheckBox::indicator {
+    width: 24px;
+    height: 24px;
+}
+
 """
