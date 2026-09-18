@@ -1,6 +1,6 @@
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QWidget, QScroller
 
 from app.ui.state import Cart, format_money, format_quantity
 
@@ -28,6 +28,8 @@ class CartWidget(QWidget):
         self.items.viewport().setAutoFillBackground(True)
         self.items.currentRowChanged.connect(self._selection)
         self.items.setWordWrap(True)
+        # QScroller disabled temporarily for debugging
+        # QScroller.grabGesture(self.items.viewport(), QScroller.ScrollerGestureType.TouchGesture)
         layout.addWidget(self.items, 1)
         buttons = QHBoxLayout()
         self.minus_button = QPushButton("−")
@@ -71,9 +73,12 @@ class CartWidget(QWidget):
             variant = f" — {format_quantity(item.quantity)} L" if liter else f" — {item.option_name}" if item.option_name else ''
             title = item.name + variant
             text = f'{title}: {format_money(item.product_total)}'
+            for addon in item.addons:
+                name = f'+ {addon.name}' + ('' if addon.manual_price is not None and addon.quantity == 1 else f' ×{format_quantity(addon.quantity)}')
+                text += f'\n{name}: {format_money(addon.total_price)}'
             row = QListWidgetItem()
             row.setData(Qt.ItemDataRole.AccessibleTextRole, text)
-            # Keep accessible text on the model; the visible receipt has local actions.
+            row.setSizeHint(QSize(0, 48 + len(item.addons) * 20 + (28 if liter else 0)))
             self.items.addItem(row)
             content = QWidget()
             content.setObjectName('receiptCard')
@@ -81,7 +86,7 @@ class CartWidget(QWidget):
             content.setPalette(self.items.palette())
             box = QVBoxLayout(content)
             box.setContentsMargins(8, 8, 8, 8)
-            box.setSpacing(8)
+            box.setSpacing(4)
             def money_row(name, total, main=False):
                 line = QHBoxLayout()
                 label = QLabel(name)
@@ -100,27 +105,5 @@ class CartWidget(QWidget):
             for addon in item.addons:
                 name = f'+ {addon.name}' + ('' if addon.manual_price is not None and addon.quantity == 1 else f' ×{format_quantity(addon.quantity)}')
                 money_row(name, addon.total_price)
-                text += f'\n{name}: {format_money(addon.total_price)}'
-            row.setData(Qt.ItemDataRole.AccessibleTextRole, text)
-            actions = QHBoxLayout()
-            for title, action in [('−', self.minus_button), ('+', self.plus_button),
-                                  ('Tahrirlash', self.edit_button), ('×', self.remove_button)]:
-                button = QPushButton(title)
-                if liter and title in {'−', '+'}:
-                    continue
-                button.setEnabled(action.isEnabled())
-                if title != 'Tahrirlash':
-                    button.setFixedWidth(44)
-                def invoke(_=False, i=index, target=action):
-                    self.items.setCurrentRow(i)
-                    target.click()
-                button.clicked.connect(invoke)
-                actions.addWidget(button)
-                if title == '−':
-                    quantity = QLabel(format_quantity(item.quantity))
-                    quantity.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                    actions.addWidget(quantity)
-            box.addLayout(actions)
-            row.setSizeHint(QSize(0, 120 + len(item.addons) * 32 + (28 if liter else 0)))
             self.items.setItemWidget(row, content)
         self.total_label.setText(f"JAMI: {format_money(cart.total_amount)}")

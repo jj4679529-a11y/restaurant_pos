@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -6,13 +7,71 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import BusinessDay, BusinessDayStatus, TelegramMessageType, TelegramOutbox, TelegramOutboxStatus, Setting
+from app.models import BusinessDay, BusinessDayStatus, DailyReport, TelegramMessageType, TelegramOutbox, TelegramOutboxStatus, Setting
+from app.models.user import User
 from app.services.errors import ServiceError
 from app.services.report_service import DailyReportData, build_daily_report_data
 from app.telegram.message_builder import build_daily_report_message
 
 TASHKENT = ZoneInfo("Asia/Tashkent")
 BUSINESS_DAY_START = time(6, 0)
+
+
+def save_daily_report_snapshot(session: Session, business_day: BusinessDay, report: DailyReportData, printer_id: int | None, created_by: int) -> DailyReport:
+    snapshot = {
+        'business_date': business_day.business_date.isoformat(),
+        'chaykhana': {'count': report.chaykhana.count, 'amount': report.chaykhana.amount},
+        'delivery': {'count': report.delivery.count, 'amount': report.delivery.amount},
+        'delivery_workers': [{'worker_id': w.worker_id, 'worker_name': w.worker_name, 'count': w.count, 'amount': w.amount} for w in report.delivery_workers],
+        'overall': {'count': report.overall.count, 'amount': report.overall.amount},
+        'cancelled': {'count': report.cancelled.count, 'amount': report.cancelled.amount},
+        'pending_count': report.pending_count,
+        'cashiers': [{'name': c[0], 'amount': c[1]} for c in report.cashiers],
+    }
+    report_entry = DailyReport(
+        business_day_id=business_day.id,
+        business_date=business_day.business_date,
+        snapshot=json.dumps(snapshot, ensure_ascii=False),
+        printer_id=printer_id,
+        total_paid_amount=report.overall.amount,
+        paid_order_count=report.overall.count,
+        cancelled_count=report.cancelled.count,
+        chaykhana_amount=report.chaykhana.amount,
+        delivery_amount=report.delivery.amount,
+        is_latest=True,
+        created_by=created_by,
+    )
+    session.add(report_entry)
+    session.flush()
+    return report_entry
+
+
+def get_daily_report_history(session: Session, limit: int = 50) -> list[dict]:
+    rows = session.execute(
+        select(
+            DailyReport.business_date,
+            DailyReport.total_paid_amount,
+            DailyReport.paid_order_count,
+            DailyReport.cancelled_count,
+            DailyReport.chaykhana_amount,
+            DailyReport.delivery_amount,
+            DailyReport.is_latest,
+        )
+        .order_by(DailyReport.business_date.desc())
+        .limit(limit)
+    ).all()
+    return [
+        {
+            'business_date': row.business_date,
+            'total_paid_amount': row.total_paid_amount,
+            'paid_order_count': row.paid_order_count,
+            'cancelled_count': row.cancelled_count,
+            'chaykhana_amount': row.chaykhana_amount,
+            'delivery_amount': row.delivery_amount,
+            'is_latest': row.is_latest,
+        }
+        for row in rows
+    ]
 
 
 @dataclass(frozen=True)
@@ -73,6 +132,8 @@ def ensure_open_business_day(session: Session, now: datetime | None = None) -> B
 def close_previous_business_day(
     session: Session,
     now: datetime | None = None,
+    created_by: int = 0,
+    printer_id: int | None = None,
 ) -> ClosePreviousBusinessDayResult:
     """Close the completed business day and enqueue its immutable daily report.
 
@@ -110,6 +171,7 @@ def close_previous_business_day(
     report = build_daily_report_data(session, previous_day)
     previous_day.status = BusinessDayStatus.CLOSED
     previous_day.closed_at = local_now
+    save_daily_report_snapshot(session, previous_day, report, printer_id, created_by)
     session.add(
         TelegramOutbox(
             message_type=TelegramMessageType.DAILY_REPORT,

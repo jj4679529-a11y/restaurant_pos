@@ -13,6 +13,7 @@ from app.models.enums import (
 from app.models.infrastructure import PrintJob, Printer, Setting, TelegramOutbox
 from app.models.operations import BusinessDay, DeliveryWorker
 from app.models.order import Order, OrderItem, OrderItemAddOn, Payment
+from app.models.reports import DailyReport
 from app.models.user import User
 
 __all__ = [
@@ -22,6 +23,7 @@ __all__ = [
     "BusinessDayStatus",
     "Category",
     "DeliveryWorker",
+    "DailyReport",
     "Order",
     "OrderItem",
     "OrderItemAddOn",

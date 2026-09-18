@@ -62,6 +62,7 @@ class PosMainWindow(QMainWindow):
         # Defer until the launcher owns/shows this window; an expired session
         # during catalog loading can then safely switch back to login.
         QTimer.singleShot(0, self.reload_catalog_async)
+        self._apply_layout_geometry()
 
     def _build(self) -> None:
         root = QWidget()
@@ -109,7 +110,6 @@ class PosMainWindow(QMainWindow):
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
         splitter.setStretchFactor(2, 0)
-        splitter.setSizes([200, 700, 430])
         self.splitter = splitter
         root_layout.addWidget(splitter, 1)
 
@@ -136,6 +136,11 @@ class PosMainWindow(QMainWindow):
         self.cart_widget.layout().addLayout(actions)
         self.setCentralWidget(root)
         self._sync_actions()
+
+    def _apply_layout_geometry(self) -> None:
+        self.cart_widget.setMinimumWidth(360)
+        self.cart_widget.setMaximumWidth(400)
+        self.splitter.setSizes([220, 700, 400])
 
     def _top_bar(self) -> QHBoxLayout:
         layout = QHBoxLayout()
@@ -194,13 +199,14 @@ class PosMainWindow(QMainWindow):
         self.category_scroll.setWidget(self.category_content)
         QScroller.grabGesture(self.category_scroll.viewport(), QScroller.ScrollerGestureType.TouchGesture)
         layout.addWidget(self.category_scroll)
-        self.category_scroll.setMinimumWidth(180)
-        panel.setMaximumWidth(250)
+        self.category_scroll.setMinimumWidth(220)
+        panel.setMaximumWidth(230)
         return panel
 
     def _product_panel(self) -> QWidget:
         panel = QWidget()
         layout = QVBoxLayout(panel)
+        layout.setContentsMargins(0, 0, 0, 0)
         title = QLabel("MAHSULOTLAR")
         title.setObjectName("sectionTitle")
         layout.addWidget(title)
@@ -218,6 +224,7 @@ class PosMainWindow(QMainWindow):
         self.product_scroll.setWidget(self.product_content)
         QScroller.grabGesture(self.product_scroll.viewport(), QScroller.ScrollerGestureType.TouchGesture)
         layout.addWidget(self.product_scroll)
+        panel.setMinimumWidth(360)
         return panel
 
     def _start_clock(self) -> None:

@@ -44,7 +44,7 @@ jobs:
       - name: Configure DATABASE_URL
         shell: bash
         run: |
-          echo "DATABASE_URL=postgresql+psycopg2://postgres@localhost:5432/restaurant_pos" >> $GITHUB_ENV
+          echo "DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/restaurant_pos" >> $GITHUB_ENV
           echo "DEBUG=false" >> $GITHUB_ENV
           echo "QT_QPA_PLATFORM=offscreen" >> $GITHUB_ENV
 

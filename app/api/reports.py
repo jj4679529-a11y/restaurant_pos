@@ -3,9 +3,10 @@ from datetime import date, timedelta
 from typing import Literal
 from fastapi import APIRouter
 from sqlalchemy import func, select
+
 from app.api.deps import AdminUser, DbSession
-from app.models import BusinessDay, Category, Product, Order, OrderItem, Payment, PaymentStatus, User, DeliveryWorker, OrderType
-from app.services.business_day_service import get_current_business_date
+from app.models import BusinessDay, Category, Product, Order, OrderItem, Payment, PaymentStatus, User, DeliveryWorker, OrderType, DailyReport
+from app.services.business_day_service import get_current_business_date, get_daily_report_history
 
 router = APIRouter(prefix='/admin/reports', tags=['reports'])
 
@@ -48,3 +49,8 @@ def daily_report(db: DbSession, _admin: AdminUser, business_date: date | None = 
     return {'business_date': day_date, 'total_order_count': all_count, 'paid_order_count': count,
             'total_paid_amount': int(total), 'categories': categories, 'products': products,
             'cashiers': cashiers, 'delivery_workers': workers, 'by_order_type': by_type}
+
+
+@router.get('/history')
+def daily_report_history(db: DbSession, _admin: AdminUser, limit: int = 50):
+    return get_daily_report_history(db, limit)
