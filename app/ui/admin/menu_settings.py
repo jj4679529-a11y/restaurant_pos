@@ -31,7 +31,7 @@ class QuickPricesDialog(QDialog):
         self.records = []
 
         self.setWindowTitle(target["name"] + " — Tezkor narxlar")
-        self.resize(600, 560)
+        self.resize(720, 620)
 
         layout = QVBoxLayout(self)
 
@@ -39,7 +39,7 @@ class QuickPricesDialog(QDialog):
         title.setObjectName("dialogTitle")
         layout.addWidget(title)
 
-        subtitle = QLabel("Kassir uchun tezkor narx variantlari")
+        subtitle = QLabel("Kassir ekrani uchun 4 tagacha tezkor narx belgilang")
         subtitle.setWordWrap(True)
         layout.addWidget(subtitle)
 
@@ -57,7 +57,7 @@ class QuickPricesDialog(QDialog):
         self.scroll.setWidget(content)
         layout.addWidget(self.scroll, 1)
 
-        self.add_button = QPushButton("+ TEZKOR NARX QO‘SHISH")
+        self.add_button = QPushButton("＋ NARX QO‘SHISH · 4 TAGACHA")
         self.add_button.setProperty("primary", True)
         self.add_button.setMinimumHeight(56)
         self.add_button.clicked.connect(lambda: self.edit())
@@ -105,7 +105,7 @@ class QuickPricesDialog(QDialog):
         self.add_button.setToolTip("Ko‘pi bilan 4 ta tezkor narx")
 
         if not visible_records:
-            empty = QLabel("Tezkor narxlar hali kiritilmagan.")
+            empty = QLabel("Tezkor narxlar sozlanmagan")
             empty.setWordWrap(True)
             self.rows.addWidget(empty)
 
@@ -235,11 +235,19 @@ class OshPage(QWidget):
 
         root = QVBoxLayout(self)
 
-        title = QLabel("Osh sozlamalari")
+        title = QLabel("Osh — porsiya va qo‘shimchalar")
         title.setObjectName("dialogTitle")
         root.addWidget(title)
 
-        root.addWidget(QLabel("Porsiya narxlari"))
+        portion_title = QLabel("PORSIYALAR")
+        portion_title.setObjectName("sectionTitle")
+        root.addWidget(portion_title)
+
+        portion_help = QLabel(
+            "Kassir Oshni tanlaganda shu porsiya va narxlar ko‘rinadi."
+        )
+        portion_help.setWordWrap(True)
+        root.addWidget(portion_help)
 
         form = QFormLayout()
         self.prices = {}
@@ -258,7 +266,7 @@ class OshPage(QWidget):
             self.prices[key] = spin
             row.addWidget(spin, 1)
 
-            keypad = QPushButton("Narx kiritish")
+            keypad = QPushButton("NARX")
             keypad.setMinimumHeight(52)
             keypad.clicked.connect(
                 lambda _=False, field=spin: self.number(field)
@@ -278,7 +286,8 @@ class OshPage(QWidget):
         root.addWidget(self.save_button)
 
         self.notice = QLabel(
-            "Qo‘shimchalar va tezkor narxlar alohida saqlanadi."
+            "Tuxum, Bedana tuxum va Qazi — dona narxi. "
+            "Go‘sht — 4 ta tezkor narx + kassirda boshqa narx."
         )
         self.notice.setWordWrap(True)
         root.addWidget(self.notice)
@@ -326,7 +335,7 @@ class OshPage(QWidget):
 
             if product is None:
                 self.notice.setText(
-                    "Faol Osh topilmadi. Menyuni tekshiring."
+                    "Faol Osh topilmadi. Avval Menyu bo‘limida Osh yarating yoki faollashtiring."
                 )
                 self._clear_addons()
                 return
@@ -376,7 +385,7 @@ class OshPage(QWidget):
                 )
 
                 if manual:
-                    price_text = "Tezkor / qo‘lda narx"
+                    price_text = "4 ta tezkor narx + boshqa narx"
                 else:
                     price_text = (
                         format_money(
@@ -389,9 +398,9 @@ class OshPage(QWidget):
                 line.addWidget(price_label)
 
                 edit = QPushButton(
-                    "Tezkor narxlar"
+                    "TEZKOR NARXLAR"
                     if manual
-                    else "Narxni o‘zgartirish"
+                    else "DONA NARXINI O‘ZGARTIRISH"
                 )
 
                 edit.setMinimumHeight(52)
@@ -462,7 +471,7 @@ class OshPage(QWidget):
             )
 
             self.notice.setText(
-                "✓ Saqlandi. Kassir menyuni yangilashi mumkin."
+                "✓ Porsiya narxlari saqlandi."
             )
 
         except Exception as error:

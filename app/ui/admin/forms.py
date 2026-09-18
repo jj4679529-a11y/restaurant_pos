@@ -6,6 +6,8 @@ receive editable prices for ordinary products.
 """
 from pathlib import Path
 
+from PySide6.QtCore import Qt
+
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -94,7 +96,7 @@ class Editor(QDialog):
     def __init__(self, title, fields, values, save, on_error, parent=None):
         super().__init__(parent)
         self.setWindowTitle(title)
-        self.resize(740, 640)
+        self.resize(760, 680)
 
         self.save_callback = save
         self.on_error = on_error
@@ -107,7 +109,7 @@ class Editor(QDialog):
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(
-            self.scroll.horizontalScrollBarPolicy().ScrollBarAlwaysOff
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
         QScroller.grabGesture(
             self.scroll.viewport(),
@@ -119,7 +121,9 @@ class Editor(QDialog):
         self.form.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow
         )
-        self.form.setSpacing(14)
+        self.form.setSpacing(18)
+        self.form.setContentsMargins(18, 18, 18, 18)
+        self.form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
 
         for key, label, kind in fields:
             self.field_rows[key] = self.form.rowCount()
@@ -168,7 +172,7 @@ class Editor(QDialog):
                 row = QHBoxLayout()
                 row.addWidget(widget, 1)
 
-                keypad = QPushButton("RAQAMLAR")
+                keypad = QPushButton("NARX KIRITISH")
                 keypad.setMinimumHeight(52)
                 keypad.clicked.connect(
                     lambda _=False, field=widget: self.money_keypad(field)
@@ -187,7 +191,7 @@ class Editor(QDialog):
         cancel.setMinimumHeight(58)
         cancel.clicked.connect(self.reject)
 
-        self.save_button = QPushButton("SAQLASH")
+        self.save_button = QPushButton("✓ SAQLASH")
         self.save_button.setProperty("primary", True)
         self.save_button.setMinimumHeight(58)
         self.save_button.clicked.connect(self.save)
@@ -294,8 +298,8 @@ class Editor(QDialog):
 
 
 def fields_for(resource, client, original):
-    active = [("is_active", "Faollik", "bool")]
-    named = [("name", "Nomi", "text")]
+    active = [("is_active", "Sotuvda faol", "bool")]
+    named = [("name", "Mahsulot nomi", "text")]
 
     if resource == "categories":
         return named + [("sort_order", "Tartibi", "int")] + active
@@ -304,11 +308,11 @@ def fields_for(resource, client, original):
         fields = (
             named
             + [
-                ("unit_type", "Sotish turi", UNITS),
-                ("base_price", "Narxi", "money"),
+                ("unit_type", "Hisoblash turi", UNITS),
+                ("base_price", "Sotuv narxi", "money"),
                 (
                     "allows_manual_price",
-                    "Narxni kassir kiritadi",
+                    "Kassir boshqa narx kirita oladi",
                     "bool",
                 ),
             ]
@@ -322,15 +326,15 @@ def fields_for(resource, client, original):
             ]
             fields.insert(
                 1,
-                ("category_id", "Kategoriya", categories),
+                ("category_id", "Menyu bo‘limi", categories),
             )
             fields.append(
-                ("image_path", "Rasm", "readonly")
+                ("image_path", "Mahsulot rasmi", "readonly")
             )
             fields.append(
                 (
                     "volume_liters",
-                    "Qadoq hajmi / litr",
+                    "Hajmi (masalan 0.5 L / 1 L)",
                     "text",
                 )
             )
@@ -338,14 +342,14 @@ def fields_for(resource, client, original):
         return fields
 
     if resource == "workers":
-        return named + [("phone", "Telefon", "text")] + active
+        return named + [("phone", "Telefon raqami", "text")] + active
 
     if resource == "users":
         return (
             named
             + [
-                ("phone", "Telefon", "text"),
-                ("username", "Login", "text"),
+                ("phone", "Telefon raqami", "text"),
+                ("username", "Kirish logini", "text"),
                 (
                     "role",
                     "Rol",
@@ -363,7 +367,7 @@ def fields_for(resource, client, original):
         return (
             named
             + [
-                ("terminal_name", "Terminal", "text"),
+                ("terminal_name", "Qaysi kassa / terminal", "text"),
                 (
                     "connection_type",
                     "Ulanish",
@@ -372,7 +376,7 @@ def fields_for(resource, client, original):
                         ("Tarmoq", "NETWORK"),
                     ],
                 ),
-                ("address", "Manzil / device", "text"),
+                ("address", "Printer manzili / qurilma nomi", "text"),
             ]
             + active
         )
@@ -457,8 +461,44 @@ class RecordEditor(Editor):
             original,
         )
 
+        titles = {
+            "products": (
+                "Mahsulotni tahrirlash"
+                if original
+                else "Yangi mahsulot"
+            ),
+            "addons": (
+                "Qo‘shimchani tahrirlash"
+                if original
+                else "Yangi qo‘shimcha"
+            ),
+            "workers": (
+                "Yetkazib beruvchini tahrirlash"
+                if original
+                else "Yangi yetkazib beruvchi"
+            ),
+            "users": (
+                "Kassirni tahrirlash"
+                if original
+                else "Yangi kassir"
+            ),
+            "printers": (
+                "Printerni tahrirlash"
+                if original
+                else "Yangi printer"
+            ),
+            "categories": (
+                "Menyu bo‘limini tahrirlash"
+                if original
+                else "Yangi menyu bo‘limi"
+            ),
+        }
+
         super().__init__(
-            "Tahrirlash" if original else "Yangi yozuv",
+            titles.get(
+                resource,
+                "Tahrirlash" if original else "Yangi yozuv",
+            ),
             fields,
             values,
             self.persist,
@@ -587,6 +627,16 @@ class RecordEditor(Editor):
                 visible,
             )
 
+    def _set_field_label(self, key, text):
+        widget = self.widgets.get(key)
+        if not widget:
+            return
+
+        label = self.form.labelForField(widget)
+
+        if label:
+            label.setText(text)
+
     def apply_menu_rules(self):
         if self.resource not in {"products", "addons"}:
             return
@@ -615,6 +665,17 @@ class RecordEditor(Editor):
             False,
         )
         self._set_row_visible("base_price", True)
+
+        if self.resource == "products":
+            self._set_row_visible(
+                "volume_liters",
+                False,
+            )
+
+        self._set_field_label(
+            "base_price",
+            "Sotuv narxi",
+        )
 
         # Go‘sht is an Osh-only addon, never a standalone product.
         if _is_gosht(name):
@@ -658,8 +719,15 @@ class RecordEditor(Editor):
             or key in {"choy", "novot"}
         ):
             self._set_unit("PIECE")
+
             if price_widget:
                 price_widget.setEnabled(True)
+
+            self._set_field_label(
+                "base_price",
+                "Dona narxi",
+            )
+
             self._update_price_label()
 
             # Only cold drinks show package-size metadata.
@@ -668,13 +736,27 @@ class RecordEditor(Editor):
                     "volume_liters",
                     self._is_cold_drink_category(),
                 )
+
+                if self._is_cold_drink_category():
+                    self._set_field_label(
+                        "volume_liters",
+                        "Hajmi (masalan 0.5 L / 1 L / 1.5 L)",
+                    )
+
             return
 
         # Sho‘rva / Ko‘za sho‘rva / Mastava are configured portion-price items.
         if _is_portion_food(name):
             self._set_unit("PORTION")
+
             if price_widget:
                 price_widget.setEnabled(True)
+
+            self._set_field_label(
+                "base_price",
+                "Porsiya narxi",
+            )
+
             self._update_price_label()
             if self.resource == "products":
                 self._set_row_visible("volume_liters", False)

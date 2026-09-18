@@ -18,51 +18,94 @@ class ResourcePage(QWidget):
         self.resource, self.client, self.on_error = resource, client, on_error
         self.records = []
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(TITLES[resource]))
+        layout.setContentsMargins(20, 18, 20, 18)
+        layout.setSpacing(12)
+
+        header = QHBoxLayout()
+
+        title = QLabel(TITLES[resource])
+        title.setObjectName("pageTitle")
+        title.setStyleSheet("font-size: 24px; font-weight: 700;")
+        header.addWidget(title)
+
+        header.addStretch()
+
+        layout.addLayout(header)
         if resource in {'products', 'categories', 'addons', 'presets'}:
             sections = QHBoxLayout()
             # Owner-facing menu intentionally exposes only two simple sections.
-            for key, title in [('products', 'Umumiy mahsulotlar'), ('categories', 'Guruhlar')]:
+            for key, title in [
+                ('products', 'MAHSULOTLAR'),
+                ('categories', 'GURUHLAR'),
+            ]:
                 button = QPushButton(title)
-                button.clicked.connect(lambda _=False, k=key: self.window().navigate(k) if hasattr(self.window(), 'navigate') else None)
+                button.setMinimumHeight(52)
+                button.setCheckable(True)
+                button.setChecked(resource == key)
+                button.clicked.connect(
+                    lambda _=False, k=key:
+                    self.window().navigate(k)
+                    if hasattr(self.window(), 'navigate')
+                    else None
+                )
                 sections.addWidget(button)
             layout.addLayout(sections)
         self.category = QComboBox()
-        self.category.addItem('Barcha kategoriyalar', None)
+        self.category.setMinimumHeight(50)
+        self.category.addItem('Barcha menyu bo‘limlari', None)
         self.category.currentIndexChanged.connect(self.render)
         self.category.setVisible(resource == 'products')
         layout.addWidget(self.category)
         self.rows = QListWidget()
-        self.rows.setIconSize(QSize(64, 40))
+        self.rows.setObjectName("adminResourceList")
+        self.rows.setIconSize(QSize(82, 62))
         self.rows.setWordWrap(True)
+        self.rows.setSpacing(4)
+        self.rows.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         self.rows.itemDoubleClicked.connect(lambda _: self.edit())
         layout.addWidget(self.rows)
         actions = QHBoxLayout()
-        self.add_button = QPushButton('+ QO‘SHISH')
+        add_label = {
+            'products': '+ YANGI MAHSULOT',
+            'categories': '+ YANGI GURUH',
+            'workers': '+ YANGI YETKAZIB BERUVCHI',
+            'users': '+ YANGI KASSIR',
+            'printers': '+ YANGI PRINTER',
+        }.get(resource, '+ QO‘SHISH')
+
+        self.add_button = QPushButton(add_label)
+        self.add_button.setProperty("primary", True)
         self.add_button.setVisible(resource != 'settings')
         self.add_button.clicked.connect(lambda: self.edit(new=True))
-        self.edit_button = QPushButton('TAHRIRLASH')
+        self.edit_button = QPushButton('TANLANGANNI TAHRIRLASH')
         self.edit_button.clicked.connect(lambda: self.edit())
-        refresh = QPushButton('YANGILASH')
+        refresh = QPushButton('↻ YANGILASH')
         refresh.clicked.connect(self.load)
         for button in (self.add_button, self.edit_button, refresh):
+            button.setMinimumHeight(54)
             actions.addWidget(button)
         actions.addStretch()
         layout.addLayout(actions)
         if resource == 'products':
             extra = QHBoxLayout()
-            osh = QPushButton('PORSIYA / NON VARIANTLARI')
+            osh = QPushButton('PORSIYA / VARIANTLAR')
+            osh.setMinimumHeight(52)
             osh.clicked.connect(self.portions)
-            links = QPushButton('QO‘SHIMCHA BOG‘LASH / AJRATISH')
+            links = QPushButton('OSH QO‘SHIMCHALARINI SOZLASH')
+            links.setMinimumHeight(52)
             links.clicked.connect(self.links)
             extra.addWidget(osh)
             extra.addWidget(links)
             layout.addLayout(extra)
-            prepare = QPushButton('YAKUNIY MENYUNI TAYYORLASH')
+            prepare = QPushButton('MENYUDAGI YETISHMAYOTGANLARNI TAYYORLASH')
+            prepare.setMinimumHeight(52)
             prepare.clicked.connect(self.prepare_menu)
             layout.addWidget(prepare)
         if resource in {'products', 'addons'}:
-            quick = QPushButton('TEZKOR NARXLARNI SOZLASH')
+            quick = QPushButton('4 TA TEZKOR NARXNI SOZLASH')
+            quick.setMinimumHeight(52)
             quick.clicked.connect(self.quick_prices)
             layout.addWidget(quick)
         self.notice = QLabel()
@@ -95,7 +138,7 @@ class ResourcePage(QWidget):
                 selected = self.category.currentData()
                 self.category.blockSignals(True)
                 self.category.clear()
-                self.category.addItem('Barcha kategoriyalar', None)
+                self.category.addItem('Barcha menyu bo‘limlari', None)
                 for row in self.client.list_records('categories'):
                     self.category.addItem(row['name'], row['id'])
                 self.category.setCurrentIndex(max(0, self.category.findData(selected)))
@@ -111,7 +154,10 @@ class ResourcePage(QWidget):
                            [('restaurant_name', ''), ('business_day_start', '06:00'), ('timezone', 'Asia/Tashkent')]]
             self.records = records
             self.render()
-            self.notice.setText('Yozuvni tanlab tahrirlang. O‘chirish o‘rniga nofaol qilish ishlatiladi.')
+            self.notice.setText(
+                'Kerakli yozuvni tanlang. '
+                'O‘chirish o‘rniga Faol / Nofaol holati ishlatiladi.'
+            )
             if self.resource == 'settings':
                 self.notice.setText('Standart: 06:00, Asia/Tashkent. Sozlama yangi buyurtmalarga ta’sir qiladi; tarix o‘zgarmaydi.')
         except Exception as error:
@@ -130,7 +176,10 @@ class ResourcePage(QWidget):
                     price = 'Admin belgilagan porsiyalar'
                 text += f" · {price}"
             elif self.resource == 'addons':
-                text += ' · Narxni kassir kiritadi' if record['allows_manual_price'] else ' · ' + format_money(record['base_price']) + ' / dona'
+                if menu_name(record['name']) in {'gosht', "go'sht"}:
+                    text += '\n4 ta tezkor narx + boshqa narx (min 5 000 so‘m)'
+                else:
+                    text += '\n' + format_money(record['base_price']) + ' / dona'
             elif self.resource == 'presets':
                 field = 'product_id' if record.get('product_id') else 'addon_id'
                 text = f"{self.target_names.get((field, record[field]), 'Noma’lum')} · {format_money(record['amount'])} · Tartib: {record['sort_order']}"
@@ -144,7 +193,12 @@ class ResourcePage(QWidget):
                 text = {'restaurant_name': 'Restoran nomi', 'business_day_start': 'Ish kuni boshlanishi', 'timezone': 'Vaqt mintaqasi'}.get(record['key'], record['key']) + f" · {record['value']}"
             row = QListWidgetItem(text + (f'\n{active}' if self.resource != 'settings' else ''))
             row.setData(Qt.ItemDataRole.UserRole, record)
-            row.setSizeHint(QSize(0, 64))
+            row.setSizeHint(
+                QSize(
+                    0,
+                    92 if self.resource == 'products' else 74,
+                )
+            )
             if self.resource == 'products':
                 row.setIcon(QIcon(product_pixmap(self.client.load_image(record.get('image_path')))))
             self.rows.addItem(row)
@@ -213,6 +267,15 @@ class ResourcePage(QWidget):
         product = self.selected()
         if not product:
             return
+
+        if menu_name(product.get("name", "")) != "osh":
+            QMessageBox.information(
+                self,
+                "Osh qo‘shimchalari",
+                "Qo‘shimchalar faqat Osh uchun sozlanadi.",
+            )
+            return
+
         try:
             addons = self.client.list_records('addons')
             labels = [f"{a['name']} ({'faol' if a['is_active'] else 'nofaol'})" for a in addons]
@@ -232,52 +295,181 @@ class ResourcePage(QWidget):
 class Dashboard(QWidget):
     def __init__(self, client, on_error, parent=None):
         super().__init__(parent)
-        self.client, self.on_error = client, on_error
+
+        self.client = client
+        self.on_error = on_error
+
         layout = QVBoxLayout(self)
-        self.summary = QLabel('Dashboard')
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(16)
+
+        top = QHBoxLayout()
+
+        title_box = QVBoxLayout()
+
+        title = QLabel("Dashboard")
+        title.setObjectName("pageTitle")
+        title.setStyleSheet(
+            "font-size: 26px; font-weight: 800;"
+        )
+        title_box.addWidget(title)
+
+        self.summary = QLabel("Server holati tekshirilmoqda...")
         self.summary.setWordWrap(True)
-        self.summary.setStyleSheet('font-size: 24px; padding: 24px;')
-        layout.addWidget(self.summary)
+        self.summary.setObjectName("dashboardStatus")
+        title_box.addWidget(self.summary)
+
+        top.addLayout(title_box)
+        top.addStretch()
+
+        refresh = QPushButton("↻ YANGILASH")
+        refresh.setMinimumHeight(52)
+        refresh.setMinimumWidth(150)
+        refresh.clicked.connect(self.load)
+        top.addWidget(refresh)
+
+        layout.addLayout(top)
+
         grid = QGridLayout()
+        grid.setSpacing(12)
+
         self.cards = {}
-        for index, (key, title) in enumerate([('products', 'Mahsulotlar'), ('workers', 'Yetkazib beruvchilar'), ('users', 'Kassirlar')]):
+
+        cards = [
+            ("products", "Faol mahsulotlar"),
+            ("users", "Kassirlar"),
+            ("workers", "Yetkazib beruvchilar"),
+            ("printers", "Printerlar"),
+        ]
+
+        for index, (key, title_text) in enumerate(cards):
             card = QWidget()
-            card.setObjectName('summaryCard')
+            card.setObjectName("summaryCard")
+
             box = QVBoxLayout(card)
-            box.addWidget(QLabel(title))
-            value = QLabel('—')
-            value.setObjectName('dialogTitle')
+            box.setContentsMargins(18, 16, 18, 16)
+            box.setSpacing(6)
+
+            label = QLabel(title_text)
+            label.setObjectName("summaryTitle")
+            box.addWidget(label)
+
+            value = QLabel("—")
+            value.setObjectName("dashboardValue")
+            value.setStyleSheet(
+                "font-size: 30px; font-weight: 800;"
+            )
             box.addWidget(value)
-            grid.addWidget(card, 0, index)
+
+            row = index // 2
+            column = index % 2
+
+            grid.addWidget(card, row, column)
             self.cards[key] = value
+
         layout.addLayout(grid)
-        button = QPushButton('YANGILASH')
-        button.clicked.connect(self.load)
-        layout.addWidget(button)
+
+        catalog_title = QLabel("MENYU HOLATI")
+        catalog_title.setObjectName("sectionTitle")
+        catalog_title.setStyleSheet(
+            "font-size: 16px; font-weight: 700;"
+        )
+        layout.addWidget(catalog_title)
+
         self.catalog = QListWidget()
+        self.catalog.setObjectName("dashboardCatalog")
         self.catalog.setWordWrap(True)
+        self.catalog.setSpacing(3)
+        self.catalog.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         layout.addWidget(self.catalog, 1)
 
     def load(self):
         try:
-            self.client.get('/health')
-            lines = ['Backend: ulangan']
-            for resource, title in [('categories', 'Faol kategoriyalar'), ('products', 'Faol mahsulotlar'), ('workers', 'Faol yetkazib beruvchilar'),
-                                    ('users', 'Faol foydalanuvchilar'), ('printers', 'Faol printerlar')]:
-                rows = self.client.list_records(resource)
-                if resource in self.cards:
-                    self.cards[resource].setText(str(sum(r.get('is_active', True) and (resource != 'users' or r['role'] == 'CASHIER') for r in rows)))
-                lines.append(f"{title}: {sum(bool(r.get('is_active', True)) for r in rows)}")
-                if resource == 'users':
-                    lines.append(f"Faol kassirlar: {sum(r['role'] == 'CASHIER' and r['is_active'] for r in rows)}")
-            self.summary.setText(lines[0] + '\n' + next(line for line in lines if line.startswith('Faol printerlar')))
+            self.client.get("/health")
+
+            resources = {
+                "products": self.client.list_records("products"),
+                "workers": self.client.list_records("workers"),
+                "users": self.client.list_records("users"),
+                "printers": self.client.list_records("printers"),
+            }
+
+            active_products = sum(
+                bool(row.get("is_active", True))
+                for row in resources["products"]
+            )
+
+            active_workers = sum(
+                bool(row.get("is_active", True))
+                for row in resources["workers"]
+            )
+
+            active_cashiers = sum(
+                row.get("role") == "CASHIER"
+                and bool(row.get("is_active", True))
+                for row in resources["users"]
+            )
+
+            active_printers = sum(
+                bool(row.get("is_active", True))
+                for row in resources["printers"]
+            )
+
+            self.cards["products"].setText(
+                str(active_products)
+            )
+            self.cards["users"].setText(
+                str(active_cashiers)
+            )
+            self.cards["workers"].setText(
+                str(active_workers)
+            )
+            self.cards["printers"].setText(
+                str(active_printers)
+            )
+
+            self.summary.setText(
+                "Backend: ulangan"
+                f"   ·   {active_products} faol mahsulot"
+                f"   ·   {active_printers} faol printer"
+            )
+
             self.catalog.clear()
-            products = self.client.list_records('products')
-            for category in self.client.list_records('categories'):
-                self.catalog.addItem('— ' + category['name'].upper() + ' —')
+
+            products = resources["products"]
+            categories = self.client.list_records("categories")
+
+            for category in categories:
+                if not category.get("is_active", True):
+                    continue
+
+                header = QListWidgetItem(
+                    category["name"].upper()
+                )
+                header.setSizeHint(QSize(0, 40))
+                self.catalog.addItem(header)
+
                 for product in products:
-                    if product['category_id'] == category['id']:
-                        self.catalog.addItem(product['name'] + (' · Nofaol' if not product['is_active'] else ''))
+                    if product.get("category_id") != category["id"]:
+                        continue
+
+                    status = (
+                        "Faol"
+                        if product.get("is_active", True)
+                        else "Nofaol"
+                    )
+
+                    item = QListWidgetItem(
+                        f"{product['name']}  ·  {status}"
+                    )
+                    item.setSizeHint(QSize(0, 48))
+                    self.catalog.addItem(item)
+
         except Exception as error:
-            self.summary.setText('Backend: ma’lumot yuklanmadi')
+            self.summary.setText(
+                "● Server yoki ma’lumotlar bilan ulanishda muammo"
+            )
             self.on_error(error)
+

@@ -37,10 +37,33 @@ class AdminWindow(QMainWindow):
         self.setMinimumSize(1024, 700)
         root = QWidget()
         layout = QHBoxLayout(root)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
         nav_panel = QWidget()
-        nav_panel.setFixedWidth(236)
+        nav_panel.setObjectName("adminSidebar")
+        nav_panel.setFixedWidth(260)
+
         nav = QVBoxLayout(nav_panel)
-        nav.addWidget(QLabel(f"ADMIN\n{session.user.get('name', '')}"))
+        nav.setContentsMargins(18, 22, 18, 18)
+        nav.setSpacing(10)
+
+        brand = QLabel("RESTAURANT POS")
+        brand.setObjectName("adminBrand")
+        brand.setStyleSheet(
+            "font-size: 20px; font-weight: 800; padding: 6px 4px;"
+        )
+        nav.addWidget(brand)
+
+        admin_label = QLabel(
+            f"ADMINISTRATOR\n{session.user.get('name', '')}"
+        )
+        admin_label.setObjectName("adminUser")
+        admin_label.setWordWrap(True)
+        admin_label.setStyleSheet(
+            "font-size: 13px; padding: 0 4px 14px 4px;"
+        )
+        nav.addWidget(admin_label)
         self.stack = QStackedWidget()
         self.pages = {'dashboard': Dashboard(client, self.handle_error, self)}
         self.pages.update({key: ResourcePage(key, client, self.handle_error, self) for key in TITLES})
@@ -52,21 +75,34 @@ class AdminWindow(QMainWindow):
             self.stack.addWidget(page)
             if key in {'categories', 'osh', 'addons', 'presets'}:
                 continue
-            label = {'products': 'Menyu', 'workers': 'Yetkazib beruvchilar', 'users': 'Kassirlar',
-                     'printers': 'Printerlar', 'settings': 'Sozlamalar', 'reports': 'Hisobotlar',
-                     'dashboard': 'Dashboard'}[key]
+            label = {
+                'dashboard': 'Dashboard',
+                'products': 'Menyu',
+                'users': 'Kassirlar',
+                'workers': 'Yetkazib beruvchilar',
+                'reports': 'Hisobotlar',
+                'printers': 'Printerlar',
+                'settings': 'Sozlamalar',
+            }[key]
+
             button = QPushButton(label)
-            button.setFixedHeight(48)
+            button.setMinimumHeight(56)
+            button.setMinimumWidth(210)
             button.setCheckable(True)
             button.setProperty('role', 'admin-navigation')
             self.nav_buttons[key] = button
             button.clicked.connect(lambda _=False, value=key: self.navigate(value))
             nav.addWidget(button)
         nav.addStretch()
-        back = QPushButton('← Kassaga qaytish')
+        back = QPushButton('← KASSAGA QAYTISH')
+        back.setMinimumHeight(54)
+        back.setObjectName("adminBack")
         back.clicked.connect(self.logout)
         nav.addWidget(back)
+
         logout = QPushButton('CHIQISH')
+        logout.setMinimumHeight(54)
+        logout.setObjectName("adminLogout")
         logout.clicked.connect(self.logout)
         nav.addWidget(logout)
         layout.addWidget(nav_panel)
