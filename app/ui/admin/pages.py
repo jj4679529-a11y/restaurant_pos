@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QDate
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QListWidget, QListWidgetItem, QPushButton, QComboBox, QInputDialog, QMessageBox
 
@@ -314,7 +314,9 @@ class Dashboard(QWidget):
         )
         title_box.addWidget(title)
 
-        self.summary = QLabel("Server holati tekshirilmoqda...")
+        self.summary = QLabel(
+            "Server holati tekshirilmoqda..."
+        )
         self.summary.setWordWrap(True)
         self.summary.setObjectName("dashboardStatus")
         title_box.addWidget(self.summary)
@@ -336,15 +338,16 @@ class Dashboard(QWidget):
         self.cards = {}
 
         cards = [
-            ("products", "Faol mahsulotlar"),
-            ("users", "Kassirlar"),
-            ("workers", "Yetkazib beruvchilar"),
-            ("printers", "Printerlar"),
+            ("sales", "Bugungi savdo"),
+            ("orders", "Buyurtmalar"),
+            ("delivery", "Yetkazib berish"),
+            ("cashiers", "Kassirlar"),
         ]
 
         for index, (key, title_text) in enumerate(cards):
             card = QWidget()
             card.setObjectName("summaryCard")
+            card.setMinimumHeight(118)
 
             box = QVBoxLayout(card)
             box.setContentsMargins(18, 16, 18, 16)
@@ -361,10 +364,12 @@ class Dashboard(QWidget):
             )
             box.addWidget(value)
 
-            row = index // 2
-            column = index % 2
+            grid.addWidget(
+                card,
+                index // 2,
+                index % 2,
+            )
 
-            grid.addWidget(card, row, column)
             self.cards[key] = value
 
         layout.addLayout(grid)
@@ -389,57 +394,68 @@ class Dashboard(QWidget):
         try:
             self.client.get("/health")
 
-            resources = {
-                "products": self.client.list_records("products"),
-                "workers": self.client.list_records("workers"),
-                "users": self.client.list_records("users"),
-                "printers": self.client.list_records("printers"),
-            }
+            products = self.client.list_records("products")
+            users = self.client.list_records("users")
+            categories = self.client.list_records("categories")
 
             active_products = sum(
                 bool(row.get("is_active", True))
-                for row in resources["products"]
-            )
-
-            active_workers = sum(
-                bool(row.get("is_active", True))
-                for row in resources["workers"]
+                for row in products
             )
 
             active_cashiers = sum(
                 row.get("role") == "CASHIER"
                 and bool(row.get("is_active", True))
-                for row in resources["users"]
+                for row in users
             )
 
-            active_printers = sum(
-                bool(row.get("is_active", True))
-                for row in resources["printers"]
+            today = QDate.currentDate().toString(
+                "yyyy-MM-dd"
             )
 
-            self.cards["products"].setText(
-                str(active_products)
+            report = self.client.get(
+                "/api/admin/reports/daily"
+                f"?period=kunlik&business_date={today}"
             )
-            self.cards["users"].setText(
-                str(active_cashiers)
+
+            total_sales = report.get(
+                "total_paid_amount",
+                0,
             )
-            self.cards["workers"].setText(
-                str(active_workers)
+
+            total_orders = report.get(
+                "total_order_count",
+                0,
             )
-            self.cards["printers"].setText(
-                str(active_printers)
+
+            delivery_sales = (
+                report.get("by_order_type", {})
+                .get("DELIVERY", 0)
+            )
+
+            self.cards["sales"].setText(
+                format_money(total_sales)
+            )
+
+            self.cards["orders"].setText(
+                f"{total_orders} ta"
+            )
+
+            self.cards["delivery"].setText(
+                format_money(delivery_sales)
+            )
+
+            self.cards["cashiers"].setText(
+                f"{active_cashiers} faol"
             )
 
             self.summary.setText(
                 "Backend: ulangan"
                 f"   ·   {active_products} faol mahsulot"
-                f"   ·   {active_printers} faol printer"
+                f"   ·   {active_cashiers} faol kassir"
             )
 
             self.catalog.clear()
-
-            products = resources["products"]
-            categories = self.client.list_records("categories")
 
             for category in categories:
                 if not category.get("is_active", True):
@@ -452,13 +468,16 @@ class Dashboard(QWidget):
                 self.catalog.addItem(header)
 
                 for product in products:
-                    if product.get("category_id") != category["id"]:
+                    if (
+                        product.get("category_id")
+                        != category["id"]
+                    ):
                         continue
 
                     status = (
-                        "Faol"
+                        "Sotuvda"
                         if product.get("is_active", True)
-                        else "Nofaol"
+                        else "O‘chirilgan"
                     )
 
                     item = QListWidgetItem(
@@ -469,7 +488,7 @@ class Dashboard(QWidget):
 
         except Exception as error:
             self.summary.setText(
-                "● Server yoki ma’lumotlar bilan ulanishda muammo"
+                "● Server yoki ma’lumotlar bilan "
+                "ulanishda muammo"
             )
             self.on_error(error)
-
