@@ -330,7 +330,7 @@ class ProductDialog(QDialog):
                 if not presets:
                     body.addWidget(
                         QLabel(
-                            "Go‘sht tezkor narxlari sozlanmagan"
+                            "Tezkor narxlar sozlanmagan"
                         )
                     )
 
