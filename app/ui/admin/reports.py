@@ -301,14 +301,13 @@ class ReportsPage(QWidget):
         try:
             params = [
                 f"period={self.period.currentText().lower()}",
-                (
-                    "order_type="
-                    + (
-                        self.order_type.currentData()
-                        or ""
-                    )
-                ),
             ]
+
+            order_type = self.order_type.currentData()
+            if order_type:
+                params.append(
+                    f"order_type={order_type}"
+                )
 
             if business_date:
                 params.append(
@@ -541,3 +540,4 @@ class ReportsPage(QWidget):
         self.load(
             business_date
         )
+
