@@ -27,6 +27,7 @@ from app.services.business_day_service import (
     get_current_business_date,
 )
 from app.services.errors import ServiceError
+from app.models.reports import DailyReport
 
 TASHKENT = ZoneInfo("Asia/Tashkent")
 
@@ -241,6 +242,11 @@ def test_concurrent_close_creates_one_report() -> None:
     try:
         cleanup.execute(delete(TelegramOutbox).where(TelegramOutbox.id.in_(report_ids)))
         cleanup.execute(delete(Order).where(Order.business_day_id == ids["previous_day_id"]))
+        cleanup.execute(
+            delete(DailyReport).where(
+                DailyReport.business_day_id == ids["previous_day_id"]
+            )
+        )
         cleanup.execute(
             delete(BusinessDay).where(
                 BusinessDay.id.in_([ids["previous_day_id"]]),

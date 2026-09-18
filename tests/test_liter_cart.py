@@ -108,27 +108,63 @@ def test_light_receipt_and_liter_line(qt_app, theme):
         qt_app.setPalette(old)
 
 
-def test_admin_liter_price_to_cashier_and_backend_order(db, qt_app, admin_http):
+def test_admin_kompot_piece_price_to_cashier_and_backend_order(db, qt_app, admin_http):
     client, _, _ = admin_http
-    category = Category(name='Litr fixture ' + uuid4().hex)
-    product = Product(category=category, name='Kompot ' + uuid4().hex,
-                      unit_type=UnitType.LITER, base_price=12000, allows_manual_price=False)
+
+    category = Category(name='Kompot va Ayron ' + uuid4().hex)
+
+    product = Product(
+        category=category,
+        name='Kompot ' + uuid4().hex,
+        unit_type=UnitType.PIECE,
+        base_price=12000,
+        allows_manual_price=False,
+    )
+
     db.add(product)
     db.flush()
+
     product_id = product.id
+
     original = client.get(f'/api/products/{product_id}')
-    editor = RecordEditor('products', client, original, lambda e: pytest.fail(str(e)))
-    label = editor.form.itemAt(editor.field_rows['base_price'], QFormLayout.ItemRole.LabelRole).widget()
-    assert label.text() == '1 litr narxi'
+
+    editor = RecordEditor(
+        'products',
+        client,
+        original,
+        lambda e: pytest.fail(str(e)),
+    )
+
+    label = editor.form.itemAt(
+        editor.field_rows['base_price'],
+        QFormLayout.ItemRole.LabelRole,
+    ).widget()
+
+    assert label.text() == 'Dona narxi'
+
     editor.widgets['base_price'].setValue(14000)
     editor.save()
-    refreshed = next(p for p in client.load_catalog()[1] if p['id'] == product_id)
+
+    refreshed = next(
+        p for p in client.load_catalog()[1]
+        if p['id'] == product_id
+    )
+
     assert refreshed['base_price'] == 14000
+    assert refreshed['unit_type'] == 'PIECE'
+
     picker = ProductDialog(refreshed)
-    picker._volume(Decimal('1.5'))
     item = picker._item()
-    assert item.total_price == 21000
-    order = client.create_order({'order_type': 'CHAYKHANA', 'items': [item.to_payload()]})
-    assert order['total_amount'] == 21000 and order['payment_status'] == 'PENDING'
-    assert Decimal(order['items'][0]['quantity']) == Decimal('1.5')
+
+    assert item.total_price == 14000
+    assert item.quantity == Decimal('1')
+
+    order = client.create_order({
+        'order_type': 'CHAYKHANA',
+        'items': [item.to_payload()],
+    })
+
+    assert order['total_amount'] == 14000
+    assert order['payment_status'] == 'PENDING'
+    assert Decimal(order['items'][0]['quantity']) == Decimal('1')
     assert order['items'][0]['unit_price'] == 14000

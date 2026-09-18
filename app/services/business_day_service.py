@@ -39,7 +39,6 @@ def save_daily_report_snapshot(session: Session, business_day: BusinessDay, repo
         chaykhana_amount=report.chaykhana.amount,
         delivery_amount=report.delivery.amount,
         is_latest=True,
-        created_by=created_by,
     )
     session.add(report_entry)
     session.flush()
