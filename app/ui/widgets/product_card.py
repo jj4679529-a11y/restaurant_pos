@@ -37,14 +37,17 @@ class ProductCard(QToolButton):
         title = product['name']
         if product.get('volume_liters'):
             title += '\n' + format_quantity(product['volume_liters']) + ' L'
-        self.setText(f"{title}\n{price}\n" + ("+ Qo‘shish · Mavjud" if available else "Mavjud emas"))
+        if available:
+            self.setText(f"{title}\n{price}")
+        else:
+            self.setText(f"{title}\nMavjud emas")
         self.setEnabled(available)
         self.setProperty('role', 'product-card')
         self.setIcon(QIcon(product_pixmap(image_data)))
-        self.setIconSize(QSize(148, 90))
+        self.setIconSize(QSize(156, 94))
         self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
-        self.setMinimumSize(168, 188)
+        self.setMinimumSize(164, 172)
         self.setSizePolicy(self.sizePolicy().Policy.Expanding, self.sizePolicy().Policy.Fixed)
-        self.setFixedHeight(210 if product.get('volume_liters') else 192)
+        self.setFixedHeight(196 if product.get('volume_liters') else 180)
         self.setToolTip(self.text())
         self.setObjectName("productCard")

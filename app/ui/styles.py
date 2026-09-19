@@ -376,4 +376,140 @@ QCheckBox::indicator {
     height: 24px;
 }
 
+
+/* ---------- CASHIER CLONE ---------- */
+
+QPushButton[role="cashier-tab"] {
+    background: transparent;
+    color: #66736c;
+    border: none;
+    border-radius: 8px;
+    padding: 4px 14px;
+    font-size: 13px;
+    font-weight: 750;
+}
+
+QPushButton[role="cashier-tab"]:checked {
+    background: #ffffff;
+    color: #173f2f;
+    border: 1px solid #e1e5e2;
+}
+
+QPushButton[role="order-type"] {
+    background: #ffffff;
+    color: #637168;
+    border: 1px solid #e0e5e1;
+    border-radius: 10px;
+    padding: 4px 16px;
+    font-weight: 750;
+}
+
+QPushButton[role="order-type"]:checked {
+    background: #23654b;
+    color: #ffffff;
+    border-color: #23654b;
+}
+
+QToolButton#productCard {
+    background: #ffffff;
+    border: 1px solid #e5e8e6;
+    border-radius: 14px;
+    padding: 7px;
+    color: #24372e;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+QToolButton#productCard:hover {
+    background: #ffffff;
+    border: 1px solid #92aa9e;
+}
+
+QToolButton#productCard:pressed {
+    background: #eef4f0;
+}
+
+QWidget[role="order-card"] {
+    background: #ffffff;
+    border: 1px solid #e4e8e5;
+    border-radius: 14px;
+}
+
+QListWidget#receiptList {
+    background: #ffffff;
+    border: none;
+    padding: 0;
+}
+
+QWidget#receiptCard {
+    background: #ffffff;
+    border: none;
+    border-bottom: 1px solid #eceeec;
+    border-radius: 0;
+    padding: 3px;
+}
+
+QWidget#receiptCard[selected="true"] {
+    background: #f4f8f5;
+    border-bottom: 1px solid #aac0b4;
+}
+
+QLabel#receiptTitle {
+    color: #26372f;
+    font-size: 14px;
+    font-weight: 750;
+}
+
+QLabel#receiptSecondary {
+    color: #7a847f;
+    font-size: 12px;
+}
+
+QLabel#totalLabel {
+    color: #193f30;
+    padding: 12px 4px 8px 4px;
+    font-size: 27px;
+    font-weight: 850;
+}
+
+QLabel#cashierBrand {
+    color: #193f30;
+    font-size: 19px;
+    font-weight: 850;
+}
+
+QLabel#connectionStatus {
+    color: #718078;
+    font-size: 12px;
+    font-weight: 650;
+}
+
+QPushButton[role="category"] {
+    min-height: 48px;
+    text-align: left;
+    padding-left: 14px;
+    background: transparent;
+    border: none;
+    border-radius: 9px;
+    color: #5e6b64;
+    font-weight: 700;
+}
+
+QPushButton[role="category"]:hover {
+    background: #f0f4f1;
+}
+
+QPushButton[role="category"]:checked,
+QPushButton[role="category-selected"] {
+    background: #e6efe9;
+    color: #174a35;
+    border: none;
+    font-weight: 850;
+}
+
+QScrollArea {
+    background: transparent;
+    border: none;
+}
+
 """

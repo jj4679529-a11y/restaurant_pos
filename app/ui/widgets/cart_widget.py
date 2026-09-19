@@ -25,13 +25,12 @@ class CartWidget(QWidget):
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(8)
 
-        title = QLabel("JORIY BUYURTMA")
+        title = QLabel("BUYURTMA")
         title.setObjectName("sectionTitle")
         layout.addWidget(title)
 
         self.empty = QLabel(
-            "Mahsulot tanlang\n"
-            "Buyurtma shu yerda ko‘rinadi"
+            "Hali mahsulot tanlanmagan"
         )
         self.empty.setWordWrap(True)
         layout.addWidget(self.empty)
@@ -86,7 +85,7 @@ class CartWidget(QWidget):
 
         bottom = QHBoxLayout()
 
-        self.clear_button = QPushButton("Savatni tozalash")
+        self.clear_button = QPushButton("TOZALASH")
         self.clear_button.setMinimumHeight(52)
 
         bottom.addWidget(self.clear_button)
@@ -173,7 +172,7 @@ class CartWidget(QWidget):
                 accessible_text,
             )
 
-            base_height = 100
+            base_height = 88
             addon_height = len(item.addons) * 28
             liter_height = 24 if liter else 0
 
@@ -271,8 +270,8 @@ class CartWidget(QWidget):
                 plus = QPushButton("+")
 
                 for button in (minus, plus):
-                    button.setMinimumHeight(48)
-                    button.setMinimumWidth(56)
+                    button.setMinimumHeight(44)
+                    button.setMinimumWidth(50)
 
                 minus.clicked.connect(
                     lambda checked=False, i=index:
@@ -287,8 +286,8 @@ class CartWidget(QWidget):
                 controls.addWidget(minus)
                 controls.addWidget(plus)
 
-            edit = QPushButton("Tahrirlash")
-            edit.setMinimumHeight(48)
+            edit = QPushButton("SOZLASH")
+            edit.setMinimumHeight(44)
 
             edit.clicked.connect(
                 lambda checked=False, i=index:

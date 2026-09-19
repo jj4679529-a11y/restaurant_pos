@@ -67,8 +67,8 @@ class PosMainWindow(QMainWindow):
     def _build(self) -> None:
         root = QWidget()
         root_layout = QVBoxLayout(root)
-        root_layout.setContentsMargins(10, 8, 10, 8)
-        root_layout.setSpacing(8)
+        root_layout.setContentsMargins(12, 10, 12, 10)
+        root_layout.setSpacing(9)
 
         root_layout.addLayout(self._top_bar())
 
@@ -78,11 +78,13 @@ class PosMainWindow(QMainWindow):
         self.fresh_order_button = QPushButton("YANGI BUYURTMA")
         self.fresh_order_button.setMinimumHeight(44)
         self.fresh_order_button.setCheckable(True)
+        self.fresh_order_button.setProperty("role", "cashier-tab")
         self.fresh_order_button.setChecked(True)
         self.fresh_order_button.clicked.connect(self._new_order)
 
         self.saved_orders_button = QPushButton("SAQLANGANLAR")
         self.saved_orders_button.setMinimumHeight(44)
+        self.saved_orders_button.setProperty("role", "cashier-tab")
         self.saved_orders_button.clicked.connect(self._saved_orders)
 
         self.chaykhana_button = QPushButton("CHOYXONADA")
@@ -93,7 +95,8 @@ class PosMainWindow(QMainWindow):
             self.delivery_button,
         ):
             button.setCheckable(True)
-            button.setMinimumHeight(44)
+            button.setMinimumHeight(46)
+            button.setProperty("role", "order-type")
 
         self.chaykhana_button.setChecked(True)
 
@@ -236,9 +239,9 @@ class PosMainWindow(QMainWindow):
         self._sync_actions()
 
     def _apply_layout_geometry(self) -> None:
-        self.cart_widget.setMinimumWidth(320)
-        self.cart_widget.setMaximumWidth(390)
-        self.splitter.setSizes([180, 760, 360])
+        self.cart_widget.setMinimumWidth(340)
+        self.cart_widget.setMaximumWidth(400)
+        self.splitter.setSizes([165, 780, 370])
 
     def _top_bar(self) -> QHBoxLayout:
         layout = QHBoxLayout()
@@ -303,9 +306,9 @@ class PosMainWindow(QMainWindow):
         self.category_scroll.setWidget(self.category_content)
         QScroller.grabGesture(self.category_scroll.viewport(), QScroller.ScrollerGestureType.TouchGesture)
         layout.addWidget(self.category_scroll)
-        self.category_scroll.setMinimumWidth(165)
-        panel.setMinimumWidth(165)
-        panel.setMaximumWidth(190)
+        self.category_scroll.setMinimumWidth(150)
+        panel.setMinimumWidth(150)
+        panel.setMaximumWidth(175)
         return panel
 
     def _product_panel(self) -> QWidget:
