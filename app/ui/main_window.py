@@ -67,87 +67,178 @@ class PosMainWindow(QMainWindow):
     def _build(self) -> None:
         root = QWidget()
         root_layout = QVBoxLayout(root)
-        root_layout.setContentsMargins(14, 12, 14, 12)
-        root_layout.setSpacing(10)
-        root_layout.addLayout(self._top_bar())
-        navigation = QHBoxLayout()
-        self.fresh_order_button = QPushButton('YANGI BUYURTMA')
-        self.fresh_order_button.setMinimumHeight(50)
-        self.fresh_order_button.clicked.connect(self._new_order)
+        root_layout.setContentsMargins(10, 8, 10, 8)
+        root_layout.setSpacing(8)
 
-        self.saved_orders_button = QPushButton('SAQLANGAN BUYURTMALAR')
-        self.saved_orders_button.setMinimumHeight(50)
-        self.saved_orders_button.clicked.connect(self._saved_orders)
-        navigation.addWidget(self.fresh_order_button)
-        navigation.addWidget(self.saved_orders_button)
-        navigation.addStretch()
-        refresh = QPushButton('↻ MENYUNI YANGILASH')
-        refresh.setMinimumHeight(50)
-        refresh.setProperty('role', 'secondary')
-        refresh.clicked.connect(self.reload_catalog_async)
-        navigation.addWidget(refresh)
+        root_layout.addLayout(self._top_bar())
+
+        controls = QHBoxLayout()
+        controls.setSpacing(8)
+
+        self.fresh_order_button = QPushButton("YANGI BUYURTMA")
+        self.fresh_order_button.setMinimumHeight(44)
         self.fresh_order_button.setCheckable(True)
         self.fresh_order_button.setChecked(True)
-        root_layout.addLayout(navigation)
-        root_layout.addLayout(self._order_type_bar())
+        self.fresh_order_button.clicked.connect(self._new_order)
+
+        self.saved_orders_button = QPushButton("SAQLANGANLAR")
+        self.saved_orders_button.setMinimumHeight(44)
+        self.saved_orders_button.clicked.connect(self._saved_orders)
+
+        self.chaykhana_button = QPushButton("CHOYXONADA")
+        self.delivery_button = QPushButton("YETKAZIB BERISH")
+
+        for button in (
+            self.chaykhana_button,
+            self.delivery_button,
+        ):
+            button.setCheckable(True)
+            button.setMinimumHeight(44)
+
+        self.chaykhana_button.setChecked(True)
+
+        order_group = QButtonGroup(self)
+        order_group.setExclusive(True)
+        order_group.addButton(self.chaykhana_button)
+        order_group.addButton(self.delivery_button)
+
+        self.chaykhana_button.clicked.connect(
+            lambda: self._set_order_type("CHAYKHANA")
+        )
+        self.delivery_button.clicked.connect(
+            lambda: self._set_order_type("DELIVERY")
+        )
+
+        refresh = QPushButton("↻")
+        refresh.setMinimumSize(44, 44)
+        refresh.setMaximumWidth(52)
+        refresh.setToolTip("Menyuni yangilash")
+        refresh.setProperty("role", "secondary")
+        refresh.clicked.connect(self.reload_catalog_async)
+
+        controls.addWidget(self.fresh_order_button)
+        controls.addWidget(self.saved_orders_button)
+        controls.addSpacing(16)
+        controls.addWidget(self.chaykhana_button)
+        controls.addWidget(self.delivery_button)
+        controls.addStretch()
+        controls.addWidget(refresh)
+
+        root_layout.addLayout(controls)
+
         self.delivery_container = QWidget()
         delivery_layout = QHBoxLayout(self.delivery_container)
         delivery_layout.setContentsMargins(0, 0, 0, 0)
-        delivery_layout.addWidget(QLabel("Yetkazib beruvchi:"))
+        delivery_layout.setSpacing(8)
+
+        delivery_label = QLabel("Yetkazib beruvchi:")
+
         self.delivery_worker_combo = QComboBox()
-        self.delivery_worker_combo.setMinimumWidth(300)
-        self.delivery_worker_combo.setMinimumHeight(50)
+        self.delivery_worker_combo.setMinimumHeight(42)
+        self.delivery_worker_combo.setMinimumWidth(260)
+
+        delivery_layout.addWidget(delivery_label)
         delivery_layout.addWidget(self.delivery_worker_combo)
         delivery_layout.addStretch()
+
         self.delivery_container.setVisible(False)
         root_layout.addWidget(self.delivery_container)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.addWidget(self._category_panel())
-        splitter.addWidget(self._product_panel())
+
+        category_panel = self._category_panel()
+        product_panel = self._product_panel()
+
+        splitter.addWidget(category_panel)
+        splitter.addWidget(product_panel)
+
         self.cart_widget = CartWidget()
-        self.cart_widget.remove_button.clicked.connect(self._remove_selected_cart_item)
-        self.cart_widget.clear_button.clicked.connect(self._clear_cart)
-        self.cart_widget.plus_button.clicked.connect(lambda: self._change_cart_quantity(1))
-        self.cart_widget.minus_button.clicked.connect(lambda: self._change_cart_quantity(-1))
-        self.cart_widget.edit_button.clicked.connect(self._edit_cart_item)
+
+        self.cart_widget.remove_button.clicked.connect(
+            self._remove_selected_cart_item
+        )
+        self.cart_widget.clear_button.clicked.connect(
+            self._clear_cart
+        )
+        self.cart_widget.plus_button.clicked.connect(
+            lambda: self._change_cart_quantity(1)
+        )
+        self.cart_widget.minus_button.clicked.connect(
+            lambda: self._change_cart_quantity(-1)
+        )
+        self.cart_widget.edit_button.clicked.connect(
+            self._edit_cart_item
+        )
+
         splitter.addWidget(self.cart_widget)
+
         splitter.setChildrenCollapsible(False)
-        splitter.setHandleWidth(4)
+        splitter.setHandleWidth(3)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
         splitter.setStretchFactor(2, 0)
+
         self.splitter = splitter
         root_layout.addWidget(splitter, 1)
 
         self.status_label = QLabel("Yangi buyurtma yarating")
         self.status_label.setObjectName("statusLabel")
         self.status_label.setWordWrap(True)
-        self.cart_widget.layout().addWidget(self.status_label)
+
+        self.cart_widget.layout().addWidget(
+            self.status_label
+        )
+
         actions = QVBoxLayout()
-        self.save_button = QPushButton("Buyurtmani saqlash")
-        self.save_button.setMinimumHeight(52)
-        self.save_button.setProperty('primary', True)
-        self.save_button.clicked.connect(self._save_order)
-        self.checkout_button = QPushButton("Chek chop etish")
-        self.checkout_button.setMinimumHeight(52)
-        self.checkout_button.setProperty('primary', True)
+        actions.setSpacing(6)
+
+        self.save_button = QPushButton(
+            "BUYURTMANI SAQLASH"
+        )
+        self.save_button.setMinimumHeight(46)
+        self.save_button.setProperty(
+            "primary",
+            True,
+        )
+        self.save_button.clicked.connect(
+            self._save_order
+        )
+
+        self.checkout_button = QPushButton(
+            "TO‘LASH VA CHEK CHOP ETISH"
+        )
+        self.checkout_button.setMinimumHeight(46)
+        self.checkout_button.setProperty(
+            "primary",
+            True,
+        )
         self.checkout_button.setEnabled(False)
-        self.checkout_button.clicked.connect(self._checkout)
+        self.checkout_button.clicked.connect(
+            self._checkout
+        )
+
+        self.new_order_button = QPushButton(
+            "YANGI BUYURTMA"
+        )
+        self.new_order_button.setMinimumHeight(44)
+        self.new_order_button.clicked.connect(
+            self._reset_after_payment
+        )
+        self.new_order_button.setVisible(False)
+
         actions.addWidget(self.save_button)
         actions.addWidget(self.checkout_button)
-        self.new_order_button = QPushButton("YANGI BUYURTMA")
-        self.new_order_button.clicked.connect(self._reset_after_payment)
-        self.new_order_button.setVisible(False)
         actions.addWidget(self.new_order_button)
+
         self.cart_widget.layout().addLayout(actions)
+
         self.setCentralWidget(root)
         self._sync_actions()
 
     def _apply_layout_geometry(self) -> None:
-        self.cart_widget.setMinimumWidth(360)
-        self.cart_widget.setMaximumWidth(420)
-        self.splitter.setSizes([200, 760, 400])
+        self.cart_widget.setMinimumWidth(320)
+        self.cart_widget.setMaximumWidth(390)
+        self.splitter.setSizes([180, 760, 360])
 
     def _top_bar(self) -> QHBoxLayout:
         layout = QHBoxLayout()
@@ -212,9 +303,9 @@ class PosMainWindow(QMainWindow):
         self.category_scroll.setWidget(self.category_content)
         QScroller.grabGesture(self.category_scroll.viewport(), QScroller.ScrollerGestureType.TouchGesture)
         layout.addWidget(self.category_scroll)
-        self.category_scroll.setMinimumWidth(185)
-        panel.setMinimumWidth(185)
-        panel.setMaximumWidth(205)
+        self.category_scroll.setMinimumWidth(165)
+        panel.setMinimumWidth(165)
+        panel.setMaximumWidth(190)
         return panel
 
     def _product_panel(self) -> QWidget:
@@ -243,7 +334,7 @@ class PosMainWindow(QMainWindow):
         self.product_scroll.setWidget(self.product_content)
         QScroller.grabGesture(self.product_scroll.viewport(), QScroller.ScrollerGestureType.TouchGesture)
         layout.addWidget(self.product_scroll)
-        panel.setMinimumWidth(360)
+        panel.setMinimumWidth(300)
         return panel
 
     def _start_clock(self) -> None:

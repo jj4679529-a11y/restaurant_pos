@@ -4,7 +4,7 @@ BRAND = "#23654b"
 APP_STYLESHEET = """
 QWidget {
     font-family: "Segoe UI", Arial, sans-serif;
-    font-size: 15px;
+    font-size: 14px;
     color: #24352e;
 }
 
@@ -20,7 +20,7 @@ QPushButton {
     color: #24352e;
     border: 1px solid #dfe4df;
     border-radius: 10px;
-    min-height: 50px;
+    min-height: 44px;
     padding: 3px 14px;
     font-weight: 600;
 }
@@ -62,7 +62,7 @@ QPushButton:disabled {
 /* ---------- CASHIER HEADER ---------- */
 
 QLabel#cashierBrand {
-    font-size: 23px;
+    font-size: 18px;
     font-weight: 800;
     color: #173d2e;
     padding: 4px 0;
@@ -77,7 +77,7 @@ QLabel#connectionStatus {
 /* ---------- CATEGORY ---------- */
 
 QPushButton[role="category"] {
-    min-height: 52px;
+    min-height: 46px;
     text-align: left;
     padding-left: 16px;
     border-radius: 9px;
@@ -97,7 +97,7 @@ QToolButton#productCard {
     border: 1px solid #e1e5e2;
     border-radius: 14px;
     padding: 8px;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 650;
 }
 
@@ -144,7 +144,7 @@ QWidget#receiptCard {
     border-bottom: 1px solid #e5e8e6;
     border-radius: 0;
     padding: 5px;
-    min-height: 48px;
+    min-height: 42px;
 }
 
 QWidget#receiptCard[selected="true"] {
@@ -160,7 +160,7 @@ QWidget#receiptCard QLabel {
 
 QLabel#receiptTitle {
     font-weight: 700;
-    font-size: 15px;
+    font-size: 14px;
 }
 
 QLabel#receiptSecondary {
@@ -171,7 +171,7 @@ QLabel#receiptSecondary {
 QLabel#totalLabel {
     color: #193f30;
     padding: 10px 4px;
-    font-size: 29px;
+    font-size: 22px;
     font-weight: 800;
 }
 
@@ -185,12 +185,12 @@ QWidget#adminSidebar {
 QPushButton[role="admin-navigation"] {
     text-align: left;
     padding: 0 16px;
-    min-height: 54px;
+    min-height: 46px;
     border: none;
     border-radius: 10px;
     background: transparent;
     color: #68726d;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 650;
 }
 
@@ -207,7 +207,7 @@ QPushButton[role="admin-navigation"]:checked {
 
 QLabel#pageTitle {
     color: #1d2d26;
-    font-size: 27px;
+    font-size: 22px;
     font-weight: 800;
 }
 
@@ -232,7 +232,7 @@ QLabel#summaryTitle {
 
 QLabel#dashboardValue {
     color: #1f332a;
-    font-size: 30px;
+    font-size: 24px;
     font-weight: 800;
 }
 
@@ -269,7 +269,7 @@ QDateEdit {
     color: #26372f;
     border: 1px solid #dce2de;
     border-radius: 10px;
-    min-height: 48px;
+    min-height: 42px;
     padding: 4px 11px;
 }
 
@@ -285,7 +285,7 @@ QDateEdit:focus {
 /* ---------- TITLES ---------- */
 
 QLabel#dialogTitle {
-    font-size: 26px;
+    font-size: 22px;
     font-weight: 800;
     color: #1f3028;
 }
@@ -334,7 +334,7 @@ QListWidget#dashboardCatalog::item {
 }
 
 QListWidget#adminResourceList::item {
-    min-height: 54px;
+    min-height: 46px;
     padding: 8px 12px;
 }
 
@@ -355,7 +355,7 @@ QWidget#addonPriceCard {
 
 QLabel#pricePresetValue {
     color: #1f332a;
-    font-size: 19px;
+    font-size: 16px;
     font-weight: 800;
 }
 
@@ -367,7 +367,7 @@ QLabel#addonPriceName {
 
 QCheckBox {
     spacing: 10px;
-    min-height: 48px;
+    min-height: 42px;
     font-weight: 650;
 }
 
