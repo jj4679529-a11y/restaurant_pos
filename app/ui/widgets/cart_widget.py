@@ -23,14 +23,15 @@ class CartWidget(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(8)
+        layout.setSpacing(6)
 
-        title = QLabel("BUYURTMA")
+        title = QLabel("JORIY BUYURTMA")
         title.setObjectName("sectionTitle")
         layout.addWidget(title)
 
         self.empty = QLabel(
-            "Hali mahsulot tanlanmagan"
+            "Mahsulot tanlang\n"
+            "Buyurtma shu yerda ko‘rinadi"
         )
         self.empty.setWordWrap(True)
         layout.addWidget(self.empty)
@@ -41,9 +42,11 @@ class CartWidget(QWidget):
         self.items.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
+
         self.items.currentRowChanged.connect(self._selection)
 
         palette = self.items.palette()
+
         for role in (
             QPalette.ColorRole.Base,
             QPalette.ColorRole.Window,
@@ -66,9 +69,9 @@ class CartWidget(QWidget):
 
         layout.addWidget(self.items, 1)
 
-        # Existing controller bindings.
-        # These stay hidden because visible +/- controls are placed
-        # directly inside each receipt row.
+        # Controller bilan eski ulanishlar saqlanadi.
+        # Bu tugmalar ko‘rinmaydi, lekin main_window.py
+        # ularga signal orqali murojaat qilishda davom etadi.
         self.minus_button = QPushButton("−")
         self.plus_button = QPushButton("+")
         self.edit_button = QPushButton("Tahrirlash")
@@ -85,14 +88,16 @@ class CartWidget(QWidget):
 
         bottom = QHBoxLayout()
 
-        self.clear_button = QPushButton("TOZALASH")
-        self.clear_button.setMinimumHeight(52)
+        self.clear_button = QPushButton("Savatni tozalash")
+        self.clear_button.setMinimumHeight(38)
 
         bottom.addWidget(self.clear_button)
+
         layout.addLayout(bottom)
 
         self.total_label = QLabel("JAMI: 0 so‘m")
         self.total_label.setObjectName("totalLabel")
+
         layout.addWidget(self.total_label)
 
     def _selection(self, selected):
@@ -134,15 +139,19 @@ class CartWidget(QWidget):
             liter = item.unit_type == "LITER"
 
             if liter:
-                variant = (
-                    f" — {format_quantity(item.quantity)} L"
+                title = (
+                    f"{item.name} — "
+                    f"{format_quantity(item.quantity)} L"
                 )
-            elif item.option_name:
-                variant = f" — {item.option_name}"
-            else:
-                variant = ""
 
-            title = item.name + variant
+            elif item.option_name:
+                title = (
+                    f"{item.name} — "
+                    f"{item.option_name}"
+                )
+
+            else:
+                title = item.name
 
             accessible_text = (
                 f"{title}: "
@@ -167,19 +176,22 @@ class CartWidget(QWidget):
                 )
 
             row = QListWidgetItem()
+
             row.setData(
                 Qt.ItemDataRole.AccessibleTextRole,
                 accessible_text,
             )
 
-            base_height = 88
-            addon_height = len(item.addons) * 28
-            liter_height = 24 if liter else 0
+            base_height = 58
+            addon_height = len(item.addons) * 22
+            liter_height = 18 if liter else 0
 
             row.setSizeHint(
                 QSize(
                     0,
-                    base_height + addon_height + liter_height,
+                    base_height
+                    + addon_height
+                    + liter_height,
                 )
             )
 
@@ -187,15 +199,26 @@ class CartWidget(QWidget):
 
             content = QWidget()
             content.setObjectName("receiptCard")
+
             content.setAttribute(
                 Qt.WidgetAttribute.WA_StyledBackground,
                 True,
             )
-            content.setPalette(self.items.palette())
+
+            content.setPalette(
+                self.items.palette()
+            )
 
             box = QVBoxLayout(content)
-            box.setContentsMargins(8, 8, 8, 8)
-            box.setSpacing(5)
+
+            box.setContentsMargins(
+                8,
+                5,
+                8,
+                5,
+            )
+
+            box.setSpacing(3)
 
             def money_row(
                 name,
@@ -203,27 +226,44 @@ class CartWidget(QWidget):
                 main=False,
             ):
                 line = QHBoxLayout()
-                line.setSpacing(8)
+                line.setSpacing(6)
 
                 label = QLabel(name)
                 label.setWordWrap(True)
+
                 label.setObjectName(
                     "receiptTitle"
                     if main
                     else "receiptSecondary"
                 )
 
-                price = QLabel(format_money(total))
+                price = QLabel(
+                    format_money(total)
+                )
+
                 price.setObjectName(
                     "receiptTitle"
                     if main
                     else "receiptSecondary"
                 )
 
-                line.addWidget(label, 1)
-                line.addWidget(price)
+                price.setAlignment(
+                    Qt.AlignmentFlag.AlignRight
+                    | Qt.AlignmentFlag.AlignVCenter
+                )
 
-                box.addLayout(line)
+                line.addWidget(
+                    label,
+                    1,
+                )
+
+                line.addWidget(
+                    price,
+                )
+
+                box.addLayout(
+                    line
+                )
 
             money_row(
                 title,
@@ -231,8 +271,12 @@ class CartWidget(QWidget):
                 True,
             )
 
-            quantity_label = QLabel(format_quantity(item.quantity))
-            quantity_label.setObjectName("receiptSecondary")
+            quantity_label = QLabel(
+                format_quantity(item.quantity)
+            )
+            quantity_label.setObjectName(
+                "receiptSecondary"
+            )
             box.addWidget(quantity_label)
 
             if liter:
@@ -240,17 +284,24 @@ class CartWidget(QWidget):
                     format_money(item.unit_price)
                     + " / litr"
                 )
+
                 rate.setObjectName(
                     "receiptSecondary"
                 )
-                box.addWidget(rate)
+
+                box.addWidget(
+                    rate
+                )
 
             for addon in item.addons:
                 if (
                     addon.manual_price is not None
                     and addon.quantity == 1
                 ):
-                    addon_name = f"+ {addon.name}"
+                    addon_name = (
+                        f"+ {addon.name}"
+                    )
+
                 else:
                     addon_name = (
                         f"+ {addon.name} "
@@ -263,15 +314,16 @@ class CartWidget(QWidget):
                 )
 
             controls = QHBoxLayout()
-            controls.setSpacing(8)
+            controls.setSpacing(6)
 
             if not liter:
                 minus = QPushButton("−")
                 plus = QPushButton("+")
 
                 for button in (minus, plus):
-                    button.setMinimumHeight(44)
-                    button.setMinimumWidth(50)
+                    button.setMinimumHeight(40)
+                    button.setMinimumWidth(46)
+                    button.setMaximumWidth(54)
 
                 minus.clicked.connect(
                     lambda checked=False, i=index:
@@ -287,7 +339,7 @@ class CartWidget(QWidget):
                 controls.addWidget(plus)
 
             edit = QPushButton("SOZLASH")
-            edit.setMinimumHeight(44)
+            edit.setMinimumHeight(40)
 
             edit.clicked.connect(
                 lambda checked=False, i=index:
@@ -295,7 +347,6 @@ class CartWidget(QWidget):
             )
 
             controls.addWidget(edit, 1)
-
             box.addLayout(controls)
 
             self.items.setItemWidget(
