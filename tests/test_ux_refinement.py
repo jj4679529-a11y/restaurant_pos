@@ -96,15 +96,28 @@ def test_selectable_osh_and_addon_quick_prices_reach_cashier(
         lambda e: pytest.fail(str(e)),
     )
 
-    dialog.osh_option_buttons["0.5 porsiya"].setChecked(True)
-    dialog.osh_half_price.setValue(25000)
+    # Salqin ichimliklar prinsipi:
+    # narxi > 0 bo'lgan porsiya active price_option bo'ladi.
+    dialog.osh_prices["0.5 porsiya"].setValue(25000)
+    dialog.osh_prices["0.7 porsiya"].setValue(35000)
+    dialog.osh_prices["1 porsiya"].setValue(0)
 
-    dialog.osh_option_buttons["0.7 porsiya"].setChecked(True)
-    dialog.osh_seven_price.setValue(35000)
-
-    dialog.osh_option_buttons["1 porsiya"].setChecked(False)
-
-    dialog._save_osh_options(product["id"])
+    client.save_price_options(
+        product["id"],
+        [
+            {
+                "name": label,
+                "quantity": quantity,
+                "price": dialog.osh_prices[label].value(),
+            }
+            for label, quantity in (
+                ("0.5 porsiya", "0.5"),
+                ("0.7 porsiya", "0.7"),
+                ("1 porsiya", "1"),
+            )
+            if dialog.osh_prices[label].value() > 0
+        ],
+    )
 
     product = next(
         p for p in client.load_catalog()[1]
