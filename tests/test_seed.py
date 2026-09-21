@@ -121,7 +121,7 @@ def test_delivery_workers_and_settings(db: Session) -> None:
     assert {"restaurant_name", "business_day_start", "timezone"} <= setting_keys
     assert "gosht_price_options" not in setting_keys
     restaurant_name = db.scalars(select(Setting).where(Setting.key == "restaurant_name")).one()
-    assert restaurant_name.value == "Restaurant POS"
+    assert restaurant_name.value == "Komronbek Zig'ir oshi"
 
 
 def test_seed_is_idempotent(db: Session) -> None:

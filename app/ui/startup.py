@@ -97,7 +97,7 @@ class StartupWindow(QWidget):
         super().__init__()
         self.starter = BackendStarter(settings)
         self.ready = ready
-        self.setWindowTitle("Restaurant POS — Ishga tushirish")
+        self.setWindowTitle("Komronbek Zig'ir oshi — Ishga tushirish")
         self.setMinimumSize(520, 240)
         layout = QVBoxLayout(self)
         self.label = QLabel("Server tekshirilmoqda...")

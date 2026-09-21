@@ -21,7 +21,7 @@ class AdminApplication:
     def show_login(self):
         previous = self.window
         self.window = LoginWindow(self.client, self.show_admin)
-        self.window.setWindowTitle('Restaurant POS — Admin kirish')
+        self.window.setWindowTitle("Komronbek Zig'ir oshi — Admin kirish")
         self.window.show()
         if previous:
             previous.close()

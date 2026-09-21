@@ -76,7 +76,7 @@ def schedule_report(session, report_time, now=None):
 
 def command_reply(session, command, now=None):
     if command == '/start':
-        return 'Restaurant POS admin bot\n/status\n/today\n/delivery'
+        return "Komronbek Zig'ir oshi admin bot\n/status\n/today\n/delivery"
     if command == '/status':
         count = session.scalar(select(func.count()).select_from(TelegramOutbox).where(
             TelegramOutbox.status != TelegramOutboxStatus.SENT))

@@ -21,14 +21,14 @@ class LoginWindow(QWidget):
         super().__init__()
         self.client = client
         self.on_login = on_login
-        self.setWindowTitle("Restaurant POS — Kirish")
+        self.setWindowTitle("Komronbek Zig'ir oshi — Kirish")
         self.setMinimumSize(420, 360)
         self._build()
 
     def _build(self) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(42, 42, 42, 42)
-        title = QLabel("Restaurant POS")
+        title = QLabel("Komronbek Zig'ir oshi")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setObjectName("dialogTitle")
         subtitle = QLabel("Kassir tizimiga kirish")

@@ -98,7 +98,7 @@ DEMO_DELIVERY_WORKERS: tuple[DeliveryWorkerSpec, ...] = (
 )
 
 SETTINGS: tuple[SettingSpec, ...] = (
-    SettingSpec("restaurant_name", "Restaurant POS"),
+    SettingSpec("restaurant_name", "Komronbek Zig'ir oshi"),
     SettingSpec("business_day_start", "06:00"),
     SettingSpec("timezone", "Asia/Tashkent"),
 )

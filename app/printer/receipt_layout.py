@@ -4,67 +4,90 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-WIDTH = 42
+# Current Windows Generic/Text Only printer is safest around 32 chars.
+# After physical testing we can raise this to 36/42 if the printer supports it.
+WIDTH = 32
 
-COMPANY_NAME = 'OOO "MAK FOOD SERVIS"'
-BRANCH_NAME = "035-TЦ Экобазар"
-ADDRESS_LINE_1 = "г. Ташкент, Мирзо Улугбекский район"
-ADDRESS_LINE_2 = 'ул. Т. Малик, дом (ТЦ "ATLAS CHIMGAN")'
-TAX_ID = "STIR 301422146"
-TITLE = "SOTUV CHEKI"
-
-
-def _center(text: str) -> str:
-    return str(text).center(WIDTH)
+DEFAULT_RESTAURANT_NAME = "Komronbek Zig'ir oshi"
 
 
 def _money(value: Any) -> str:
     amount = int(Decimal(str(value or 0)))
-    return f"{amount:,}".replace(",", " ") + ",00"
+    return f"{amount:,}".replace(",", " ") + " so‘m"
 
 
 def _qty(value: Any) -> str:
     text = format(Decimal(str(value or 0)), "f")
-    return text.rstrip("0").rstrip(".") if "." in text else text
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+    return text or "0"
 
 
-def _line(left: str = "", right: str = "") -> str:
+def _safe_text(value: Any) -> str:
+    return (
+        str(value)
+        .replace("‘", "'")
+        .replace("’", "'")
+        .replace("ʻ", "'")
+        .replace("ʼ", "'")
+    )
+
+
+def _center(text: str) -> str:
+    return _safe_text(text)[:WIDTH].center(WIDTH)
+
+
+def _separator(char: str = "-") -> str:
+    return char * WIDTH
+
+
+def _left_right(left: str, right: str) -> str:
     left = str(left)
     right = str(right)
-    space = WIDTH - len(left) - len(right)
-    if space < 1:
-        return left[: max(0, WIDTH - len(right) - 1)] + " " + right
-    return left + (" " * space) + right
+
+    available = WIDTH - len(right) - 1
+    if available < 1:
+        return right[-WIDTH:]
+
+    return f"{left[:available]:<{available}} {right}"
 
 
-def _row(name: str, qty: str, total: str) -> list[str]:
-    name = str(name)
-    qty = str(qty)
-    total = str(total)
+def _wrap(text: str, width: int = WIDTH) -> list[str]:
+    text = " ".join(str(text).split())
 
+    if not text:
+        return [""]
+
+    words = text.split(" ")
     rows: list[str] = []
-    first = name[:22]
-    rows.append(f"{first:<22}{qty:>6}{total:>14}")
+    current = ""
 
-    rest = name[22:]
-    while rest:
-        rows.append(rest[:WIDTH])
-        rest = rest[WIDTH:]
+    for word in words:
+        candidate = word if not current else f"{current} {word}"
+
+        if len(candidate) <= width:
+            current = candidate
+            continue
+
+        if current:
+            rows.append(current)
+
+        while len(word) > width:
+            rows.append(word[:width])
+            word = word[width:]
+
+        current = word
+
+    if current:
+        rows.append(current)
 
     return rows
 
 
-def _get_items(order: Any) -> list[Any]:
-    return list(
-        getattr(order, "items", None)
-        or getattr(order, "order_items", None)
-        or []
-    )
-
-
 def _item_name(item: Any) -> str:
     product = getattr(item, "product", None)
-    return (
+
+    return _safe_text(
         getattr(product, "name", None)
         or getattr(item, "name", None)
         or getattr(item, "product_name", None)
@@ -72,14 +95,22 @@ def _item_name(item: Any) -> str:
     )
 
 
-def _item_qty(item: Any) -> Any:
+def _item_quantity(item: Any) -> Any:
     return getattr(item, "quantity", None) or 1
+
+
+def _item_unit_price(item: Any) -> Any:
+    return (
+        getattr(item, "unit_price", None)
+        or getattr(item, "price", None)
+        or 0
+    )
 
 
 def _item_total(item: Any) -> Any:
     return (
-        getattr(item, "line_total", None)
-        or getattr(item, "total_price", None)
+        getattr(item, "total_price", None)
+        or getattr(item, "line_total", None)
         or getattr(item, "total_amount", None)
         or 0
     )
@@ -93,141 +124,168 @@ def _item_addons(item: Any) -> list[Any]:
     )
 
 
-def _addon_name(addon: Any) -> str:
-    addon_obj = getattr(addon, "addon", None)
-    return (
-        getattr(addon_obj, "name", None)
-        or getattr(addon, "name", None)
-        or "Qo‘shimcha"
+def _addon_name(row: Any) -> str:
+    addon = getattr(row, "addon", None)
+
+    return _safe_text(
+        getattr(addon, "name", None)
+        or getattr(row, "name", None)
+        or "Qo'shimcha"
     )
 
 
-def _addon_qty(addon: Any) -> Any:
-    return getattr(addon, "quantity", None) or 1
+def _addon_quantity(row: Any) -> Any:
+    return getattr(row, "quantity", None) or 1
 
 
-def _addon_total(addon: Any) -> Any:
+def _addon_unit_price(row: Any) -> Any:
     return (
-        getattr(addon, "line_total", None)
-        or getattr(addon, "total_price", None)
-        or getattr(addon, "total_amount", None)
+        getattr(row, "unit_price", None)
+        or getattr(row, "price", None)
         or 0
     )
 
 
-def _payments(order: Any) -> list[Any]:
-    return list(getattr(order, "payments", None) or [])
-
-
-def _payment_label(payment: Any) -> str:
-    raw = (
-        getattr(payment, "method", None)
-        or getattr(payment, "payment_method", None)
-        or getattr(payment, "payment_type", None)
-        or "To‘lov"
-    )
-    text = str(raw).replace("_", " ").strip()
-    if text.upper() == "CARD":
-        return "UzCard"
-    if text.upper() == "CASH":
-        return "Naqd"
-    return text
-
-
-def _payment_amount(payment: Any, default_total: int) -> int:
-    return int(
-        Decimal(
-            str(
-                getattr(payment, "amount", None)
-                or getattr(payment, "paid_amount", None)
-                or default_total
-            )
-        )
+def _addon_total(row: Any) -> Any:
+    return (
+        getattr(row, "total_price", None)
+        or getattr(row, "line_total", None)
+        or getattr(row, "total_amount", None)
+        or 0
     )
 
 
-def build_strict_receipt(order: Any) -> str:
-    created = (
+def _order_type(order: Any) -> str:
+    raw = getattr(order, "order_type", None)
+    value = getattr(raw, "value", raw)
+    value = str(value or "").upper()
+
+    if value == "CHAYKHANA":
+        return "Choyxona"
+
+    if value == "DELIVERY":
+        return "Yetkazib berish"
+
+    if value in {"TAKEAWAY", "TAKE_AWAY"}:
+        return "Olib ketish"
+
+    return value.title() or "-"
+
+
+def _order_number(order: Any) -> str:
+    number = getattr(order, "order_number", None)
+
+    if number:
+        return str(number)
+
+    order_id = getattr(order, "id", None)
+    return str(order_id or "-")
+
+
+def build_strict_receipt(
+    order: Any,
+    restaurant_name: str | None = None,
+) -> str:
+    restaurant_name = (
+        str(restaurant_name or "").strip()
+        or DEFAULT_RESTAURANT_NAME
+    )
+
+    receipt_time = (
         getattr(order, "paid_at", None)
         or getattr(order, "created_at", None)
         or datetime.now()
     )
 
-    if hasattr(created, "strftime"):
-        created_text = created.strftime("%d.%m.%Y %H:%M")
+    if hasattr(receipt_time, "strftime"):
+        time_text = receipt_time.strftime("%d.%m.%Y %H:%M")
     else:
-        created_text = str(created)
+        time_text = str(receipt_time)
 
-    order_id = getattr(order, "id", None) or "—"
-    items = _get_items(order)
-
-    total = getattr(order, "total_amount", None)
-    if total is None:
-        total = sum(
-            int(Decimal(str(_item_total(item) or 0)))
-            for item in items
-        )
-    total = int(Decimal(str(total or 0)))
-
-    lines: list[str] = [
-        _center(COMPANY_NAME),
-        _center(BRANCH_NAME),
-        _center(ADDRESS_LINE_1),
-        _center(ADDRESS_LINE_2),
-        "",
-        _center(TITLE),
-        "",
-        _center(f"Buyurtma # {order_id}"),
-        "",
-        TAX_ID,
-        _line("Buyurtma vaqti", created_text),
-        "-" * WIDTH,
-        f"{'Mahsulot':<22}{'Miqdori':>6}{'Summa':>14}",
-        "-" * WIDTH,
-    ]
-
-    for item in items:
-        item_name = _item_name(item)
-        item_qty = _qty(_item_qty(item))
-        item_total = _money(_item_total(item))
-
-        lines.extend(_row(item_name, item_qty, item_total))
-
-        for addon in _item_addons(item):
-            addon_name = "+ " + _addon_name(addon)
-            addon_qty = _qty(_addon_qty(addon))
-            addon_total = _money(_addon_total(addon))
-            lines.extend(_row(addon_name, addon_qty, addon_total))
-
-    lines.extend(
-        [
-            "-" * WIDTH,
-            _line("JAMI SUMMA", _money(total)),
-            _line("To‘lovga", _money(total)),
-            _line("JAMI TO‘LANDI", _money(total)),
-            "",
-            "Buyurtma to‘lovlari",
-        ]
+    items = list(
+        getattr(order, "items", None)
+        or getattr(order, "order_items", None)
+        or []
     )
 
-    payments = _payments(order)
-    if payments:
-        for payment in payments:
-            lines.append(
-                _line(
-                    "- " + _payment_label(payment),
-                    _money(_payment_amount(payment, total)),
+    total = int(
+        Decimal(
+            str(
+                getattr(order, "total_amount", None)
+                or sum(
+                    int(Decimal(str(_item_total(item))))
+                    for item in items
                 )
             )
-    else:
-        lines.append(_line("- To‘lov", _money(total)))
-
-    lines.extend(
-        [
-            "",
-            _center("RAHMAT!"),
-            "",
-        ]
+        )
     )
+
+    lines: list[str] = [
+        _separator("="),
+        _center(restaurant_name.upper()),
+        _center("ZIG'IR OSHI"),
+        _separator("="),
+        _left_right("Chek", f"#{_order_number(order)}"),
+        f"Vaqt: {time_text}",
+        f"Tur:  {_order_type(order)}",
+    ]
+
+    worker = getattr(order, "delivery_worker", None)
+    if worker is not None:
+        worker_name = getattr(worker, "name", None)
+        if worker_name:
+            lines.append(f"Yetkazib beruvchi: {_safe_text(worker_name)}")
+
+    lines.extend([
+        _separator("-"),
+        "MAHSULOTLAR",
+        _separator("-"),
+    ])
+
+    for index, item in enumerate(items, start=1):
+        name = _item_name(item)
+        qty = _qty(_item_quantity(item))
+        unit_price = _money(_item_unit_price(item))
+        item_total = _money(_item_total(item))
+
+        name_lines = _wrap(f"{index}. {name}")
+
+        lines.extend(name_lines)
+
+        price_text = f"{qty} x {unit_price}"
+        lines.append(_left_right(price_text, item_total))
+
+        for addon in _item_addons(item):
+            addon_name = _addon_name(addon)
+            addon_qty = _qty(_addon_quantity(addon))
+            addon_price = _money(_addon_unit_price(addon))
+            addon_total = _money(_addon_total(addon))
+
+            addon_lines = _wrap(f"   + {addon_name}")
+            lines.extend(addon_lines)
+
+            addon_price_text = f"   {addon_qty} x {addon_price}"
+            lines.append(
+                _left_right(
+                    addon_price_text,
+                    addon_total,
+                )
+            )
+
+        lines.append("")
+
+    if lines and lines[-1] == "":
+        lines.pop()
+
+    lines.extend([
+        _separator("="),
+        _left_right("UMUMIY:", _money(total)),
+        _separator("="),
+        "Holat: PAID",
+        "",
+        _center("RAHMAT!"),
+        _center("YANA TASHRIF BUYURING!"),
+        "",
+    ])
 
     return "\n".join(lines)

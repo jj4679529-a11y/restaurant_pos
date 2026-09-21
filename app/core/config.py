@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     )
 
     DATABASE_URL: str
-    APP_NAME: str = "Restaurant POS"
+    APP_NAME: str = "Komronbek Zig'ir oshi"
     APP_ENV: str = "development"
     DEBUG: bool = False
     PRODUCT_MEDIA_DIR: Path = PROJECT_ROOT / "media" / "products"

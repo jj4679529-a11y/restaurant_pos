@@ -32,7 +32,7 @@ class AdminWindow(QMainWindow):
         self.client, self.session, self.on_logout = client, session, on_logout
         self.embedded = embedded
         self._logged_out = False
-        self.setWindowTitle('Restaurant POS — Admin')
+        self.setWindowTitle("Komronbek Zig'ir oshi — Admin")
         self.resize(1366, 768)
         self.setMinimumSize(1024, 700)
         root = QWidget()
@@ -48,7 +48,7 @@ class AdminWindow(QMainWindow):
         nav.setContentsMargins(18, 22, 18, 18)
         nav.setSpacing(10)
 
-        brand = QLabel("RESTAURANT POS")
+        brand = QLabel("KOMRONBEK ZIG'IR OSHI")
         brand.setObjectName("adminBrand")
         brand.setStyleSheet(
             "font-size: 20px; font-weight: 800; padding: 6px 4px;"

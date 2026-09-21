@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models import Order, OrderItem, OrderItemAddOn, PrintJob, PrintJobStatus, Printer, Setting
 from app.printer.interface import PrinterAdapter, PrinterError
-from app.printer.receipt_builder import build_receipt
 from app.services.errors import ServiceError
 
 TASHKENT = ZoneInfo("Asia/Tashkent")
@@ -54,7 +53,7 @@ def print_order(session: Session, order_id: int, printer_id: int, adapter: Print
     """Create one persisted print attempt in the caller-owned transaction."""
     order = _order(session, order_id)
     printer = _printer(session, printer_id)
-    receipt = build_receipt(order, _restaurant_name(session))
+    receipt = build_strict_receipt(order, _restaurant_name(session))
     job = PrintJob(
         order_id=order.id,
         printer_id=printer.id,

@@ -57,7 +57,7 @@ class PosMainWindow(QMainWindow):
         self.selected_category_id: int | None = None
         self.current_order: dict[str, Any] | None = None
         self.payment_uncertain = False
-        self.setWindowTitle("Restaurant POS — Kassir")
+        self.setWindowTitle("Komronbek Zig'ir oshi — Kassir")
         self.setMinimumSize(980, 600)
         self._build()
         self._start_clock()
@@ -279,7 +279,7 @@ class PosMainWindow(QMainWindow):
 
     def _top_bar(self) -> QHBoxLayout:
         layout = QHBoxLayout()
-        title = QLabel("RESTAURANT POS")
+        title = QLabel("KOMRONBEK ZIG'IR OSHI")
         title.setObjectName("cashierBrand")
         layout.addWidget(title)
         layout.addStretch()
