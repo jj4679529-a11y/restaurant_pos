@@ -2,11 +2,22 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QListWidget, QListWidgetItem, QPlainTextEdit, QButtonGroup
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QListWidget, QListWidgetItem, QPlainTextEdit, QButtonGroup, QScroller, QInputDialog, QMessageBox
 
 from app.ui.api_client import ApiAuthenticationError
 from app.ui.checkout import pay_and_print, print_paid_order
 from app.ui.state import format_money
+
+
+STATUS_UZ = {
+    "PENDING": "KUTILMOQDA",
+    "PAID": "TO‘LANGAN",
+    "CANCELLED": "BEKOR QILINGAN",
+}
+
+
+def status_uz(value):
+    return STATUS_UZ.get(str(value or "").upper(), str(value or ""))
 
 
 def report_error(dialog, error):
@@ -24,7 +35,7 @@ def order_text(order):
     if created:
         created = datetime.fromisoformat(created).astimezone(ZoneInfo('Asia/Tashkent')).strftime('%d.%m.%Y %H:%M')
     kind = 'CHOYXONADA' if order['order_type'] == 'CHAYKHANA' else 'YETKAZIB BERISH'
-    return f"#{order['order_number']} · {created}\n{kind} {worker} · {format_money(order['total_amount'])} · {order['payment_status']}"
+    return f"#{order['order_number']} · {created}\n{kind} {worker} · {format_money(order['total_amount'])} · {status_uz(order['payment_status'])}"
 
 
 class OrderDetailDialog(QDialog):
@@ -44,6 +55,12 @@ class OrderDetailDialog(QDialog):
         self.action = QPushButton()
         self.action.clicked.connect(self.checkout)
         layout.addWidget(self.action)
+
+        self.cancel_button = QPushButton('BUYURTMANI BEKOR QILISH')
+        self.cancel_button.setMinimumHeight(52)
+        self.cancel_button.clicked.connect(self.cancel_order)
+        layout.addWidget(self.cancel_button)
+
         back = QPushButton('ORQAGA / YANGI BUYURTMAGA QAYTISH')
         back.clicked.connect(self.accept)
         layout.addWidget(back)
@@ -68,11 +85,102 @@ class OrderDetailDialog(QDialog):
                 lines.append(f'  Tanlangan PriceOption ID: {variant}')
             for addon in item.get('addons', []):
                 lines.append(f"  + {addon['addon']['name']} × {addon['quantity']} · {format_money(addon['unit_price'])} = {format_money(addon['total_price'])}")
+        if self.order.get('paid_at'):
+            lines.append('')
+            lines.append(f"To‘langan vaqt: {self.order['paid_at']}")
+
+        if self.order.get('cancelled_at'):
+            lines.append(f"Bekor qilingan vaqt: {self.order['cancelled_at']}")
+
+        if self.order.get('cancel_reason'):
+            lines.append(f"Bekor qilish sababi: {self.order['cancel_reason']}")
+
+        canceller = self.order.get('canceller') or {}
+        if isinstance(canceller, dict) and canceller.get('name'):
+            lines.append(f"Bekor qilgan: {canceller['name']}")
+
         self.details.setPlainText('\n'.join(lines))
+
         state = self.order['payment_status']
+
+        self.status.setText(f"Holati: {status_uz(state)}")
+
         self.action.setVisible(state in {'PENDING', 'PAID'})
         self.action.setEnabled(state in {'PENDING', 'PAID'})
-        self.action.setText('QAYTA CHEK CHOP ETISH' if state == 'PAID' else 'CHEK CHOP ETISH / TO‘LASH')
+        self.action.setText(
+            'QAYTA CHEK CHOP ETISH'
+            if state == 'PAID'
+            else 'CHEK CHOP ETISH / TO‘LASH'
+        )
+
+        self.cancel_button.setVisible(
+            state in {'PENDING', 'PAID'}
+        )
+        self.cancel_button.setEnabled(
+            state in {'PENDING', 'PAID'}
+        )
+
+    def cancel_order(self):
+        if not self.refresh():
+            return
+
+        state = self.order.get('payment_status')
+
+        if state not in {'PENDING', 'PAID'}:
+            return
+
+        reason, accepted = QInputDialog.getText(
+            self,
+            'Buyurtmani bekor qilish',
+            'Bekor qilish sababini kiriting:',
+        )
+
+        if not accepted:
+            return
+
+        reason = reason.strip()
+
+        if not reason:
+            QMessageBox.warning(
+                self,
+                'Bekor qilish',
+                'Bekor qilish sababini kiriting.',
+            )
+            return
+
+        answer = QMessageBox.question(
+            self,
+            'Tasdiqlash',
+            (
+                f"Buyurtma #{self.order['order_number']} "
+                "bekor qilinsinmi?"
+            ),
+            QMessageBox.StandardButton.Yes
+            | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        self.cancel_button.setEnabled(False)
+
+        try:
+            self.client.cancel_order(
+                self.order_id,
+                reason,
+            )
+        except Exception as error:
+            self.cancel_button.setEnabled(True)
+            report_error(self, error)
+            return
+
+        self.refresh()
+
+        self.status.setText(
+            'Buyurtma bekor qilindi. '
+            'Tarix va chek ma’lumotlari saqlandi.'
+        )
 
     def checkout(self):
         self.action.setEnabled(False)
@@ -122,6 +230,12 @@ class SavedOrdersDialog(QDialog):
         layout.addLayout(filters)
         self.rows = QListWidget()
         self.rows.setWordWrap(True)
+
+        QScroller.grabGesture(
+            self.rows.viewport(),
+            QScroller.ScrollerGestureType.TouchGesture,
+        )
+
         self.rows.itemClicked.connect(self.open_order)
         layout.addWidget(self.rows)
         self.message = QLabel()

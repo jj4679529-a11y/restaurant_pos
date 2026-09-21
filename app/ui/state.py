@@ -185,11 +185,15 @@ class CartItem:
 
         unit_type = product.get("unit_type")
 
-        # Kompot/Ayron and other final piece-drinks must never
-        # return to the old cashier liter-entry flow.
-        if key in PIECE_DRINKS and unit_type != "PIECE":
+        # Legacy piece-drinks remain PIECE unless Admin configured
+        # explicit variants (for example 0.5 / 1 / 1.5 / 2 L).
+        if (
+            key in PIECE_DRINKS
+            and unit_type != "PIECE"
+            and price_option is None
+        ):
             raise CartValidationError(
-                "Admin bu ichimlik uchun dona narxini sozlashi kerak"
+                "Admin bu ichimlik uchun variant narxini sozlashi kerak"
             )
 
         # Manual product pricing is allowed ONLY for Jizz.
@@ -215,13 +219,13 @@ class CartItem:
 
             if manual_price is not None:
                 raise CartValidationError(
-                    "Porsiya narxi bilan qo‘lda narx "
+                    "Variant narxi bilan qo‘lda narx "
                     "birga ishlatilmaydi"
                 )
 
             if unit_price <= 0:
                 raise CartValidationError(
-                    "Porsiya narxi sozlanmagan"
+                    "Variant narxi sozlanmagan"
                 )
 
         elif is_jizz:

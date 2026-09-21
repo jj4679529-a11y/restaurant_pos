@@ -62,6 +62,7 @@ class AddOn(TimestampMixin, Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    image_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     unit_type: Mapped[UnitType] = mapped_column(pg_enum(UnitType, "unit_type"), nullable=False)
     base_price: Mapped[int] = mapped_column(Integer, nullable=False)
     allows_manual_price: Mapped[bool] = mapped_column(

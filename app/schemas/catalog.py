@@ -104,6 +104,7 @@ class PriceOptionResponse(Schema):
 
 
 class AddOnCreate(Schema):
+    image_path: str | None = Field(default=None, max_length=512)
     name: str = Field(min_length=1, max_length=255)
     unit_type: UnitType
     base_price: int = Field(ge=0)
@@ -112,6 +113,7 @@ class AddOnCreate(Schema):
 
 
 class AddOnUpdate(Schema):
+    image_path: str | None = Field(default=None, max_length=512)
     name: str | None = Field(default=None, min_length=1, max_length=255)
     unit_type: UnitType | None = None
     base_price: int | None = Field(default=None, ge=0)
@@ -120,6 +122,7 @@ class AddOnUpdate(Schema):
 
 
 class AddOnResponse(Schema):
+    image_path: str | None = None
     id: int
     name: str
     unit_type: UnitType

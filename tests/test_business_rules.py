@@ -224,3 +224,112 @@ def test_product_image_placeholder_when_missing(qt_app, osh):
     card = ProductCard(osh)
     assert not card.icon().isNull()
     card.close()
+
+
+def test_non_configured_variants_use_selected_price_option(qt_app):
+    product = {
+        "id": 9101,
+        "name": "Non",
+        "unit_type": "PIECE",
+        "base_price": 0,
+        "allows_manual_price": False,
+        "price_options": [
+            {
+                "id": 101,
+                "name": "Butun",
+                "quantity": "1",
+                "price": 6000,
+                "is_active": True,
+            },
+            {
+                "id": 102,
+                "name": "Yarim",
+                "quantity": "0.5",
+                "price": 3500,
+                "is_active": True,
+            },
+            {
+                "id": 103,
+                "name": "Chorak",
+                "quantity": "0.25",
+                "price": 2000,
+                "is_active": True,
+            },
+        ],
+        "available_addons": [],
+    }
+
+    dialog = ProductDialog(product)
+
+    assert len(dialog.options_group.buttons()) == 3
+    assert dialog.confirm.isEnabled() is False
+
+    dialog.options_group.buttons()[1].click()
+
+    item = dialog._item()
+
+    assert item.selected_price_option_id == 102
+    assert item.option_name == "Yarim"
+    assert item.unit_price == 3500
+    assert item.total_price == 3500
+
+
+def test_liter_configured_variants_use_price_option_not_legacy_volume(qt_app):
+    product = {
+        "id": 9102,
+        "name": "Kompot",
+        "unit_type": "LITER",
+        "base_price": 0,
+        "allows_manual_price": False,
+        "price_options": [
+            {
+                "id": 201,
+                "name": "0.5 L",
+                "quantity": "0.5",
+                "price": 4000,
+                "is_active": True,
+            },
+            {
+                "id": 202,
+                "name": "1 L",
+                "quantity": "1",
+                "price": 7000,
+                "is_active": True,
+            },
+            {
+                "id": 203,
+                "name": "1.5 L",
+                "quantity": "1.5",
+                "price": 10000,
+                "is_active": True,
+            },
+            {
+                "id": 204,
+                "name": "2 L",
+                "quantity": "2",
+                "price": 13000,
+                "is_active": True,
+            },
+        ],
+        "available_addons": [],
+    }
+
+    dialog = ProductDialog(product)
+
+    assert dialog.has_configured_options is True
+    assert len(dialog.options_group.buttons()) == 4
+    assert not hasattr(dialog, "volume_group")
+
+    dialog.options_group.buttons()[2].click()
+
+    item = dialog._item()
+
+    assert item.selected_price_option_id == 203
+    assert item.option_name == "1.5 L"
+    assert item.unit_price == 10000
+    assert item.total_price == 10000
+
+    payload = item.to_payload()
+
+    assert payload["selected_price_option_id"] == 203
+    assert "manual_price" not in payload

@@ -141,3 +141,149 @@ def test_configured_business_boundary(db):
     now = datetime(2090, 5, 2, 4, 29, tzinfo=ZoneInfo('Asia/Tashkent'))
     assert get_current_business_date(now, db).isoformat() == '2090-05-01'
     assert get_current_business_date(now.replace(minute=30), db).isoformat() == '2090-05-02'
+
+
+def test_cancelled_report_lists_only_cancelled_orders_with_filters(admin_http):
+    admin, _, _ = admin_http
+
+    item = product(
+        admin,
+        'Cancelled report item ' + uuid4().hex[:6],
+        price=12000,
+    )
+
+    worker = admin.save_record(
+        'workers',
+        {
+            'name': 'Cancelled Worker ' + uuid4().hex[:6],
+            'phone': '99890' + uuid4().hex[:7],
+            'is_active': True,
+        },
+    )
+
+    # 1) Choyxonada -> PAID -> CANCELLED
+    chay = admin.create_order({
+        'order_type': 'CHAYKHANA',
+        'items': [
+            {
+                'product_id': item['id'],
+                'quantity': '1',
+            }
+        ],
+    })
+
+    admin.pay_order(chay['id'])
+    admin.cancel_order(
+        chay['id'],
+        'Mijoz fikrini o‘zgartirdi',
+    )
+
+    # 2) Delivery -> PAID -> CANCELLED
+    delivery = admin.create_order({
+        'order_type': 'DELIVERY',
+        'delivery_worker_id': worker['id'],
+        'items': [
+            {
+                'product_id': item['id'],
+                'quantity': '2',
+            }
+        ],
+    })
+
+    admin.pay_order(delivery['id'])
+    admin.cancel_order(
+        delivery['id'],
+        'Yetkazib berish bekor qilindi',
+    )
+
+    # 3) PAID, lekin CANCELLED emas -> endpointda chiqmasligi kerak
+    paid = admin.create_order({
+        'order_type': 'CHAYKHANA',
+        'items': [
+            {
+                'product_id': item['id'],
+                'quantity': '1',
+            }
+        ],
+    })
+
+    admin.pay_order(paid['id'])
+
+    # 4) PENDING -> endpointda chiqmasligi kerak
+    pending = admin.create_order({
+        'order_type': 'DELIVERY',
+        'delivery_worker_id': worker['id'],
+        'items': [
+            {
+                'product_id': item['id'],
+                'quantity': '1',
+            }
+        ],
+    })
+
+    business_date = get_current_business_date().isoformat()
+
+    rows = admin.get(
+        '/api/admin/reports/cancelled'
+        f'?business_date={business_date}'
+        '&period=kunlik'
+    )
+
+    ids = {row['id'] for row in rows}
+
+    assert chay['id'] in ids
+    assert delivery['id'] in ids
+    assert paid['id'] not in ids
+    assert pending['id'] not in ids
+
+    chay_row = next(
+        row for row in rows
+        if row['id'] == chay['id']
+    )
+
+    assert chay_row['order_type'] == 'CHAYKHANA'
+    assert chay_row['total_amount'] == 12000
+    assert (
+        chay_row['cancel_reason']
+        == 'Mijoz fikrini o‘zgartirdi'
+    )
+    assert chay_row['cancelled_at'] is not None
+    assert chay_row['cancelled_by']
+    assert chay_row['delivery_worker'] is None
+
+    delivery_row = next(
+        row for row in rows
+        if row['id'] == delivery['id']
+    )
+
+    assert delivery_row['order_type'] == 'DELIVERY'
+    assert delivery_row['total_amount'] == 24000
+    assert (
+        delivery_row['cancel_reason']
+        == 'Yetkazib berish bekor qilindi'
+    )
+    assert delivery_row['delivery_worker'] == worker['name']
+
+    chay_only = admin.get(
+        '/api/admin/reports/cancelled'
+        f'?business_date={business_date}'
+        '&period=kunlik'
+        '&order_type=CHAYKHANA'
+    )
+
+    chay_ids = {row['id'] for row in chay_only}
+
+    assert chay['id'] in chay_ids
+    assert delivery['id'] not in chay_ids
+
+    delivery_only = admin.get(
+        '/api/admin/reports/cancelled'
+        f'?business_date={business_date}'
+        '&period=kunlik'
+        '&order_type=DELIVERY'
+    )
+
+    delivery_ids = {row['id'] for row in delivery_only}
+
+    assert delivery['id'] in delivery_ids
+    assert chay['id'] not in delivery_ids

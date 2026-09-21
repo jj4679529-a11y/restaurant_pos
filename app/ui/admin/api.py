@@ -64,6 +64,57 @@ class AdminApiClient(PosApiClient):
         return self.request('PUT', f'/api/admin/products/{product_id}/osh-prices',
                             {'half_price': half_price, 'full_price': full_price})
 
+    def save_price_options(self, product_id, options):
+        existing = self._all_pages(
+            f'/api/products/{product_id}/price-options'
+        )
+
+        used_ids = set()
+        saved = []
+
+        for option in options:
+            match = next(
+                (
+                    row for row in existing
+                    if row.get('name') == option['name']
+                ),
+                None,
+            )
+
+            payload = {
+                'name': option['name'],
+                'quantity': str(option['quantity']),
+                'price': int(option['price']),
+                'is_active': True,
+            }
+
+            if match:
+                record = self.request(
+                    'PATCH',
+                    f"/api/price-options/{match['id']}",
+                    payload,
+                )
+                used_ids.add(match['id'])
+            else:
+                record = self.request(
+                    'POST',
+                    f'/api/products/{product_id}/price-options',
+                    payload,
+                )
+                used_ids.add(record['id'])
+
+            saved.append(record)
+
+        for old in existing:
+            if old['id'] not in used_ids and old.get('is_active', True):
+                self.request(
+                    'PATCH',
+                    f"/api/price-options/{old['id']}",
+                    {'is_active': False},
+                )
+
+        return saved
+
     def upload_image(self, data):
         if len(data) > 5 * 1024 * 1024:
             raise ValueError('Rasm hajmi 5 MB dan oshmasin')

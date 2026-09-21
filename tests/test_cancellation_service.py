@@ -17,6 +17,7 @@ from app.models import (
 from app.services.cancellation_service import cancel_order
 from app.services.errors import ServiceError
 from app.services.payment_service import pay_order
+from app.services.report_service import build_daily_report_data
 from main import app
 from tests.auth_helpers import auth_headers
 
@@ -61,21 +62,75 @@ def test_pending_order_cancellation_creates_outbox_without_payment_or_print(db: 
     assert db.scalar(select(func.count()).select_from(PrintJob).where(PrintJob.order_id == order.id)) == 0
 
 
-def test_delivery_cancellation_is_idempotent_and_paid_order_is_rejected(db: Session) -> None:
+def test_delivery_cancellation_is_idempotent_and_paid_order_can_be_cancelled(db: Session) -> None:
     delivery = _pending_order(db, delivery=True)
-    cancel_order(db, delivery.id, "Mijoz rad etdi", delivery.created_by)
-    message = db.scalars(select(TelegramOutbox.message_text).where(TelegramOutbox.order_id == delivery.id)).one()
+
+    cancel_order(
+        db,
+        delivery.id,
+        "Mijoz rad etdi",
+        delivery.created_by,
+    )
+
+    message = db.scalars(
+        select(TelegramOutbox.message_text).where(
+            TelegramOutbox.order_id == delivery.id
+        )
+    ).one()
+
     assert "Yetkazib beruvchi: Ali" in message
+
     with pytest.raises(ServiceError) as repeated:
-        cancel_order(db, delivery.id, "Ikkinchi urinish", delivery.created_by)
+        cancel_order(
+            db,
+            delivery.id,
+            "Ikkinchi urinish",
+            delivery.created_by,
+        )
+
     assert repeated.value.code == "ORDER_ALREADY_CANCELLED"
 
+    # To‘langan buyurtma ham audit tarixini saqlagan holda
+    # bekor qilinishi mumkin.
     paid = _pending_order(db)
     paid.payment_status = PaymentStatus.PAID
-    with pytest.raises(ServiceError) as paid_error:
-        cancel_order(db, paid.id, "Refund so‘rovi", paid.created_by)
-    assert paid_error.value.code == "PAID_ORDER_CANNOT_BE_CANCELLED"
+    db.flush()
 
+    result = cancel_order(
+        db,
+        paid.id,
+        "To‘lovdan keyin bekor qilindi",
+        paid.created_by,
+    )
+
+    assert result.order.payment_status == PaymentStatus.CANCELLED
+    assert result.order.cancelled_at is not None
+    assert result.order.cancelled_by == paid.created_by
+    assert (
+        result.order.cancel_reason
+        == "To‘lovdan keyin bekor qilindi"
+    )
+
+    cancel_message = db.scalars(
+        select(TelegramOutbox.message_text).where(
+            TelegramOutbox.order_id == paid.id
+        )
+    ).one()
+
+    assert cancel_message
+
+    with pytest.raises(ServiceError) as repeated_paid:
+        cancel_order(
+            db,
+            paid.id,
+            "Yana bekor qilish",
+            paid.created_by,
+        )
+
+    assert (
+        repeated_paid.value.code
+        == "ORDER_ALREADY_CANCELLED"
+    )
 
 @pytest.mark.parametrize("reason", ["", "   "])
 def test_cancellation_requires_non_blank_reason(db: Session, reason: str) -> None:
@@ -175,3 +230,157 @@ def test_concurrent_payment_and_cancellation_leave_one_valid_outcome() -> None:
         cleanup.commit()
     finally:
         cleanup.close()
+
+
+def test_paid_order_cancellation_preserves_payment_and_moves_report_to_cancelled(
+    db: Session,
+) -> None:
+    order = _pending_order(db)
+    order_id = order.id
+    day_id = order.business_day_id
+    actor_id = order.created_by
+
+    # Haqiqiy payment flow.
+    payment_result = pay_order(
+        db,
+        order_id,
+        actor_id,
+    )
+
+    db.flush()
+
+    assert payment_result.order.payment_status is PaymentStatus.PAID
+    assert payment_result.payment.status is PaymentStatus.PAID
+    assert payment_result.payment.amount == 30000
+
+    before = build_daily_report_data(
+        db,
+        db.get(BusinessDay, day_id),
+    )
+
+    assert before.overall.count == 1
+    assert before.overall.amount == 30000
+    assert before.cancelled.count == 0
+    assert before.cancelled.amount == 0
+
+    payment_id = payment_result.payment.id
+
+    cancel_result = cancel_order(
+        db,
+        order_id,
+        "To‘lovdan keyin mijoz bekor qildi",
+        actor_id,
+    )
+
+    db.flush()
+
+    assert cancel_result.order.payment_status is PaymentStatus.CANCELLED
+    assert cancel_result.order.cancelled_at is not None
+    assert cancel_result.order.cancelled_by == actor_id
+    assert (
+        cancel_result.order.cancel_reason
+        == "To‘lovdan keyin mijoz bekor qildi"
+    )
+
+    # Payment audit yozuvi saqlanishi shart.
+    payment = db.get(Payment, payment_id)
+
+    assert payment is not None
+    assert payment.order_id == order_id
+    assert payment.status is PaymentStatus.PAID
+    assert payment.amount == 30000
+    assert payment.paid_at is not None
+
+    after = build_daily_report_data(
+        db,
+        db.get(BusinessDay, day_id),
+    )
+
+    # CANCELLED endi savdo sifatida hisoblanmaydi.
+    assert after.overall.count == 0
+    assert after.overall.amount == 0
+
+    # Alohida cancelled hisobotiga o‘tadi.
+    assert after.cancelled.count == 1
+    assert after.cancelled.amount == 30000
+
+    # Kassirning paid sales summasidan ham chiqishi kerak.
+    assert after.cashiers == ()
+
+    message_types = db.scalars(
+        select(TelegramOutbox.message_type)
+        .where(TelegramOutbox.order_id == order_id)
+        .order_by(TelegramOutbox.id)
+    ).all()
+
+    # Payment tarixi ham, cancellation hodisasi ham qoladi.
+    assert TelegramMessageType.PAID_ORDER in message_types
+    assert TelegramMessageType.CANCELLED_ORDER in message_types
+
+
+def test_closed_business_day_order_cannot_be_cancelled(
+    db: Session,
+) -> None:
+    order = _pending_order(db)
+
+    day = db.get(
+        BusinessDay,
+        order.business_day_id,
+    )
+
+    day.status = BusinessDayStatus.CLOSED
+    day.closed_at = datetime.now(TASHKENT)
+
+    # PAID order bo‘lsa ham yopilgan kun o‘zgarmasligi kerak.
+    pay_order(
+        db,
+        order.id,
+        order.created_by,
+    )
+
+    db.flush()
+
+    payment_count_before = db.scalar(
+        select(func.count())
+        .select_from(Payment)
+        .where(Payment.order_id == order.id)
+    )
+
+    with pytest.raises(ServiceError) as error:
+        cancel_order(
+            db,
+            order.id,
+            "Eski yopilgan kunni bekor qilish",
+            order.created_by,
+        )
+
+    assert (
+        error.value.code
+        == "CLOSED_BUSINESS_DAY_CANNOT_CANCEL"
+    )
+
+    db.refresh(order)
+
+    assert order.payment_status is PaymentStatus.PAID
+    assert order.cancelled_at is None
+    assert order.cancel_reason is None
+
+    payment_count_after = db.scalar(
+        select(func.count())
+        .select_from(Payment)
+        .where(Payment.order_id == order.id)
+    )
+
+    assert payment_count_after == payment_count_before == 1
+
+    cancelled_events = db.scalar(
+        select(func.count())
+        .select_from(TelegramOutbox)
+        .where(
+            TelegramOutbox.order_id == order.id,
+            TelegramOutbox.message_type
+            == TelegramMessageType.CANCELLED_ORDER,
+        )
+    )
+
+    assert cancelled_events == 0

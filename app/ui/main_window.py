@@ -52,6 +52,8 @@ class PosMainWindow(QMainWindow):
         self.categories: list[dict[str, Any]] = []
         self.products: list[dict[str, Any]] = []
         self.workers: list[dict[str, Any]] = []
+        self.selected_delivery_worker_id: int | None = None
+        self.delivery_worker_buttons: list[QPushButton] = []
         self.selected_category_id: int | None = None
         self.current_order: dict[str, Any] | None = None
         self.payment_uncertain = False
@@ -130,19 +132,51 @@ class PosMainWindow(QMainWindow):
         root_layout.addLayout(controls)
 
         self.delivery_container = QWidget()
-        delivery_layout = QHBoxLayout(self.delivery_container)
+        delivery_layout = QVBoxLayout(self.delivery_container)
         delivery_layout.setContentsMargins(0, 0, 0, 0)
-        delivery_layout.setSpacing(8)
+        delivery_layout.setSpacing(6)
 
-        delivery_label = QLabel("Yetkazib beruvchi:")
-
-        self.delivery_worker_combo = QComboBox()
-        self.delivery_worker_combo.setMinimumHeight(42)
-        self.delivery_worker_combo.setMinimumWidth(260)
-
+        delivery_label = QLabel("Yetkazib beruvchini tanlang:")
+        delivery_label.setObjectName("sectionTitle")
         delivery_layout.addWidget(delivery_label)
-        delivery_layout.addWidget(self.delivery_worker_combo)
-        delivery_layout.addStretch()
+
+        self.delivery_worker_scroll = QScrollArea()
+        self.delivery_worker_scroll.setWidgetResizable(True)
+        self.delivery_worker_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.delivery_worker_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self.delivery_worker_scroll.setMinimumHeight(72)
+        self.delivery_worker_scroll.setMaximumHeight(170)
+
+        QScroller.grabGesture(
+            self.delivery_worker_scroll.viewport(),
+            QScroller.ScrollerGestureType.TouchGesture,
+        )
+
+        self.delivery_worker_content = QWidget()
+        self.delivery_worker_layout = QGridLayout(
+            self.delivery_worker_content
+        )
+        self.delivery_worker_layout.setContentsMargins(0, 0, 0, 0)
+        self.delivery_worker_layout.setHorizontalSpacing(8)
+        self.delivery_worker_layout.setVerticalSpacing(8)
+
+        self.delivery_worker_scroll.setWidget(
+            self.delivery_worker_content
+        )
+
+        delivery_layout.addWidget(self.delivery_worker_scroll)
+
+        # Backward-compatible hidden combo.
+        # UI da ko‘rinmaydi; eski test/integratsiyalar uchun saqlanadi.
+        self.delivery_worker_combo = QComboBox(self)
+        self.delivery_worker_combo.hide()
+        self.delivery_worker_combo.currentIndexChanged.connect(
+            self._delivery_combo_changed
+        )
 
         self.delivery_container.setVisible(False)
         root_layout.addWidget(self.delivery_container)
@@ -415,15 +449,106 @@ class PosMainWindow(QMainWindow):
         self._render_categories()
         self.connection_label.setText("Server: ulangan")
         self._render_products()
-        selected_worker = self.delivery_worker_combo.currentData()
+        active_ids = {
+            int(worker["id"])
+            for worker in self.workers
+            if worker.get("is_active", True)
+        }
+
+        if self.selected_delivery_worker_id not in active_ids:
+            self.selected_delivery_worker_id = None
+
+        self.delivery_worker_combo.blockSignals(True)
         self.delivery_worker_combo.clear()
-        self.delivery_worker_combo.addItem("Yetkazib beruvchini tanlang", None)
+        self.delivery_worker_combo.addItem(
+            "Yetkazib beruvchini tanlang",
+            None,
+        )
+
         for worker in self.workers:
-            if worker.get('is_active', True):
-                self.delivery_worker_combo.addItem(str(worker["name"]), int(worker["id"]))
-        selected_index = self.delivery_worker_combo.findData(selected_worker)
-        if selected_index >= 0:
-            self.delivery_worker_combo.setCurrentIndex(selected_index)
+            if worker.get("is_active", True):
+                self.delivery_worker_combo.addItem(
+                    str(worker["name"]),
+                    int(worker["id"]),
+                )
+
+        selected_index = self.delivery_worker_combo.findData(
+            self.selected_delivery_worker_id
+        )
+        self.delivery_worker_combo.setCurrentIndex(
+            selected_index if selected_index >= 0 else 0
+        )
+        self.delivery_worker_combo.blockSignals(False)
+
+        self._render_delivery_workers()
+
+    def _render_delivery_workers(self) -> None:
+        self._clear_layout(self.delivery_worker_layout)
+        self.delivery_worker_buttons = []
+
+        active_workers = [
+            worker
+            for worker in self.workers
+            if worker.get("is_active", True)
+        ]
+
+        if not active_workers:
+            empty = QLabel("Faol yetkazib beruvchi yo‘q")
+            self.delivery_worker_layout.addWidget(empty)
+            return
+
+        for worker in active_workers:
+            worker_id = int(worker["id"])
+
+            button = QPushButton(str(worker["name"]).upper())
+            button.setMinimumHeight(52)
+            button.setCheckable(True)
+            button.setProperty("role", "category")
+            button.setChecked(
+                worker_id == self.selected_delivery_worker_id
+            )
+
+            button.clicked.connect(
+                lambda _checked=False, value=worker_id:
+                self._select_delivery_worker(value)
+            )
+
+            self.delivery_worker_buttons.append(button)
+            self.delivery_worker_layout.addWidget(button)
+
+        self.delivery_worker_layout.addStretch()
+
+    def _delivery_combo_changed(self, _index: int) -> None:
+        worker_id = self.delivery_worker_combo.currentData()
+        self.selected_delivery_worker_id = (
+            int(worker_id)
+            if worker_id is not None
+            else None
+        )
+        self._render_delivery_workers()
+
+    def _select_delivery_worker(self, worker_id: int) -> None:
+        self.selected_delivery_worker_id = worker_id
+
+        index = self.delivery_worker_combo.findData(worker_id)
+        if index >= 0:
+            self.delivery_worker_combo.blockSignals(True)
+            self.delivery_worker_combo.setCurrentIndex(index)
+            self.delivery_worker_combo.blockSignals(False)
+
+        active_workers = [
+            worker
+            for worker in self.workers
+            if worker.get("is_active", True)
+        ]
+
+        for button, worker in zip(
+            self.delivery_worker_buttons,
+            active_workers,
+        ):
+            button.setChecked(
+                int(worker["id"]) == worker_id
+            )
 
     @staticmethod
     def _clear_layout(layout) -> None:
@@ -475,7 +600,23 @@ class PosMainWindow(QMainWindow):
             QMessageBox.information(self, "Buyurtma saqlangan", "Avval saqlangan buyurtma uchun to‘lovni yakunlang.")
             return
         try:
-            configurable = product.get('unit_type') == 'LITER' or product['name'].strip().casefold() == 'osh' or product.get("allows_manual_price") or product.get("available_addons") or any(o.get("is_active", True) for o in product.get("price_options", []))
+            configurable = (
+                product.get("unit_type") == "LITER"
+                or product["name"].strip().casefold() == "osh"
+                or "".join(
+                    c for c in product["name"].casefold()
+                    if c.isalnum()
+                ) == "manti"
+                or product.get("allows_manual_price")
+                or product.get("available_addons")
+                or any(
+                    option.get("is_active", True)
+                    for option in product.get(
+                        "price_options",
+                        [],
+                    )
+                )
+            )
             item = ProductDialog.choose(product, parent=self) if configurable else CartItem.from_catalog(product, Decimal(1))
             if item is None:
                 return
@@ -511,7 +652,13 @@ class PosMainWindow(QMainWindow):
             self.cart_widget.render(self.cart)
 
     def _set_order_type(self, order_type: str) -> None:
-        self.delivery_container.setVisible(order_type == "DELIVERY")
+        self.delivery_container.setVisible(
+            order_type == "DELIVERY"
+        )
+
+        if order_type == "CHAYKHANA":
+            self.selected_delivery_worker_id = None
+            self._render_delivery_workers()
 
     def _order_type(self) -> str:
         return "DELIVERY" if self.delivery_button.isChecked() else "CHAYKHANA"
@@ -536,7 +683,8 @@ class PosMainWindow(QMainWindow):
         self.save_button.setEnabled(editable)
         self.chaykhana_button.setEnabled(editable)
         self.delivery_button.setEnabled(editable)
-        self.delivery_worker_combo.setEnabled(editable)
+        for button in self.delivery_worker_buttons:
+            button.setEnabled(editable)
         self.cart_widget.remove_button.setEnabled(editable)
         self.cart_widget.clear_button.setEnabled(editable)
         self.cart_widget.render(self.cart)
@@ -553,7 +701,11 @@ class PosMainWindow(QMainWindow):
     def _save_order(self) -> None:
         if self.current_order is not None:
             return
-        worker_id = self.delivery_worker_combo.currentData() if self._order_type() == "DELIVERY" else None
+        worker_id = (
+            self.selected_delivery_worker_id
+            if self._order_type() == "DELIVERY"
+            else None
+        )
         try:
             payload = self.cart.order_payload(self._order_type(), worker_id)
             self.current_order = self.client.create_order(payload)
@@ -645,8 +797,18 @@ class PosMainWindow(QMainWindow):
             except Exception as error:
                 self._handle_api_error(error)
                 return
-            state = self.current_order['payment_status']
-            self.status_label.setText(f"Buyurtma #{self.current_order['order_number']} — {state}")
+            state = self.current_order["payment_status"]
+
+            state_name = {
+                "PENDING": "KUTILMOQDA",
+                "PAID": "TO‘LANGAN",
+                "CANCELLED": "BEKOR QILINGAN",
+            }.get(state, state)
+
+            self.status_label.setText(
+                f"Buyurtma #{self.current_order['order_number']} "
+                f"— {state_name}"
+            )
             self.checkout_button.setEnabled(state in {'PENDING', 'PAID'})
             self.checkout_button.setText('QAYTA CHOP ETISH' if state == 'PAID' else 'Chek chop etish')
             self._sync_actions()

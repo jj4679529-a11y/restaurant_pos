@@ -6,7 +6,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import (
-    Order, PaymentStatus, TelegramMessageType, TelegramOutbox, TelegramOutboxStatus, User,
+    BusinessDay,
+    BusinessDayStatus,
+    Order,
+    PaymentStatus,
+    TelegramMessageType,
+    TelegramOutbox,
+    TelegramOutboxStatus,
+    User,
 )
 from app.services.errors import ServiceError
 from app.telegram.message_builder import build_cancelled_order_message
@@ -44,22 +51,49 @@ def cancel_order(
     reason: str,
     actor_id: int,
 ) -> CancellationResult:
-    """Cancel a pending order inside the transaction owned by the caller."""
+    """Cancel a pending or paid order while preserving its audit history."""
     normalized_reason = reason.strip()
     if not normalized_reason:
         raise ServiceError(422, "CANCEL_REASON_REQUIRED", "Cancellation reason is required")
 
     order = _locked_order(session, order_id)
-    if order.payment_status is PaymentStatus.PAID:
-        raise ServiceError(409, "PAID_ORDER_CANNOT_BE_CANCELLED", "Paid orders cannot be cancelled")
+
+    business_day = session.get(
+        BusinessDay,
+        order.business_day_id,
+    )
+
+    if (
+        business_day is None
+        or business_day.status is not BusinessDayStatus.OPEN
+    ):
+        raise ServiceError(
+            409,
+            "CLOSED_BUSINESS_DAY_CANNOT_CANCEL",
+            "Orders from a closed business day cannot be cancelled",
+        )
+
     if order.payment_status is PaymentStatus.CANCELLED:
-        raise ServiceError(409, "ORDER_ALREADY_CANCELLED", "Order is already cancelled")
-    if order.payment_status is not PaymentStatus.PENDING:
-        raise ServiceError(409, "ORDER_NOT_CANCELLABLE", "Order cannot be cancelled in its current state")
+        raise ServiceError(
+            409,
+            "ORDER_ALREADY_CANCELLED",
+            "Order is already cancelled",
+        )
+
+    if order.payment_status not in {
+        PaymentStatus.PENDING,
+        PaymentStatus.PAID,
+    }:
+        raise ServiceError(
+            409,
+            "ORDER_NOT_CANCELLABLE",
+            "Order cannot be cancelled in its current state",
+        )
 
     actor = _actor(session, actor_id)
     order.payment_status = PaymentStatus.CANCELLED
     order.cancelled_at = datetime.now(TASHKENT)
+    order.cancelled_by = actor.id
     order.canceller = actor
     order.cancel_reason = normalized_reason
     session.add(TelegramOutbox(

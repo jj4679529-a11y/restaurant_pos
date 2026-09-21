@@ -1,6 +1,7 @@
 from PySide6.QtCore import Qt, QDate, QSize
 from PySide6.QtWidgets import (
     QWidget,
+    QDialog,
     QVBoxLayout,
     QHBoxLayout,
     QGridLayout,
@@ -15,6 +16,129 @@ from PySide6.QtWidgets import (
 )
 
 from app.ui.state import format_money
+
+
+class CancelledOrderDialog(QDialog):
+    def __init__(self, client, order_id, on_error, parent=None):
+        super().__init__(parent)
+
+        self.client = client
+        self.order_id = order_id
+        self.on_error = on_error
+
+        self.setWindowTitle("Bekor qilingan buyurtma")
+        self.resize(720, 620)
+
+        layout = QVBoxLayout(self)
+
+        title = QLabel("BUYURTMA TAFSILOTLARI")
+        title.setObjectName("sectionTitle")
+        layout.addWidget(title)
+
+        self.text = QTextBrowser()
+
+        QScroller.grabGesture(
+            self.text.viewport(),
+            QScroller.ScrollerGestureType.TouchGesture,
+        )
+
+        layout.addWidget(self.text, 1)
+
+        close = QPushButton("YOPISH")
+        close.setMinimumHeight(52)
+        close.clicked.connect(self.accept)
+        layout.addWidget(close)
+
+        self.load()
+
+    def load(self):
+        try:
+            order = self.client.get(
+                f"/api/orders/{self.order_id}"
+            )
+        except Exception as error:
+            self.on_error(error)
+            return
+
+        kind = (
+            "CHOYXONADA"
+            if order.get("order_type") == "CHAYKHANA"
+            else "YETKAZIB BERISH"
+        )
+
+        lines = [
+            f"Buyurtma #{order.get('order_number', '')}",
+            "",
+            "Holati: BEKOR QILINGAN",
+            f"Turi: {kind}",
+            f"Jami: {format_money(order.get('total_amount', 0))}",
+        ]
+
+        worker = order.get("delivery_worker") or {}
+        if isinstance(worker, dict) and worker.get("name"):
+            lines.append(
+                f"Yetkazib beruvchi: {worker['name']}"
+            )
+
+        if order.get("paid_at"):
+            lines.append(
+                f"To‘langan vaqt: {order['paid_at']}"
+            )
+
+        if order.get("cancelled_at"):
+            lines.append(
+                f"Bekor qilingan vaqt: {order['cancelled_at']}"
+            )
+
+        if order.get("cancel_reason"):
+            lines.append(
+                f"Sabab: {order['cancel_reason']}"
+            )
+
+        canceller = (
+            order.get("cancelled_by")
+            or order.get("canceller")
+            or {}
+        )
+
+        if isinstance(canceller, dict) and canceller.get("name"):
+            lines.append(
+                f"Bekor qilgan: {canceller['name']}"
+            )
+
+        lines.extend([
+            "",
+            "CHEK / MAHSULOTLAR",
+            "─" * 32,
+        ])
+
+        for item in order.get("items", []):
+            product = item.get("product") or {}
+
+            name = (
+                product.get("name")
+                or item.get("product_name")
+                or "Mahsulot"
+            )
+
+            lines.append(
+                f"{name} × {item.get('quantity', 1)}"
+                f" · {format_money(item.get('unit_price', 0))}"
+                f" = {format_money(item.get('total_price', 0))}"
+            )
+
+            for addon in item.get("addons", []):
+                addon_info = addon.get("addon") or {}
+
+                lines.append(
+                    f"  + {addon_info.get('name', 'Qo‘shimcha')}"
+                    f" × {addon.get('quantity', 1)}"
+                    f" · {format_money(addon.get('total_price', 0))}"
+                )
+
+        self.text.setPlainText(
+            "\n".join(lines)
+        )
 
 
 class ReportsPage(QWidget):
@@ -224,6 +348,11 @@ class ReportsPage(QWidget):
         )
 
         self.text = QTextBrowser()
+
+        QScroller.grabGesture(
+            self.text.viewport(),
+            QScroller.ScrollerGestureType.TouchGesture,
+        )
         self.text.setObjectName(
             "reportDetails"
         )
@@ -284,6 +413,45 @@ class ReportsPage(QWidget):
 
         history_box.addWidget(
             self.history_list,
+            1,
+        )
+
+        cancelled_label = QLabel(
+            "BEKOR QILINGANLAR"
+        )
+        cancelled_label.setObjectName(
+            "sectionTitle"
+        )
+        history_box.addWidget(
+            cancelled_label
+        )
+
+        cancelled_help = QLabel(
+            "Tafsilotlar uchun buyurtmani bosing"
+        )
+        cancelled_help.setWordWrap(True)
+        history_box.addWidget(
+            cancelled_help
+        )
+
+        self.cancelled_list = QListWidget()
+        self.cancelled_list.setWordWrap(True)
+        self.cancelled_list.setSpacing(4)
+        self.cancelled_list.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+
+        QScroller.grabGesture(
+            self.cancelled_list.viewport(),
+            QScroller.ScrollerGestureType.TouchGesture,
+        )
+
+        self.cancelled_list.itemClicked.connect(
+            self.open_cancelled_order
+        )
+
+        history_box.addWidget(
+            self.cancelled_list,
             1,
         )
 
@@ -465,6 +633,99 @@ class ReportsPage(QWidget):
             self.on_error(error)
 
         self.load_history()
+        self.load_cancelled(business_date)
+
+    def load_cancelled(self, business_date=None):
+        try:
+            params = [
+                f"period={self.period.currentText().lower()}",
+            ]
+
+            order_type = self.order_type.currentData()
+
+            if order_type:
+                params.append(
+                    f"order_type={order_type}"
+                )
+
+            if business_date:
+                params.append(
+                    f"business_date={business_date}"
+                )
+
+            data = self.client.get(
+                "/api/admin/reports/cancelled?"
+                + "&".join(params)
+            )
+
+            self.cancelled_list.clear()
+
+            if not data:
+                item = QListWidgetItem(
+                    "Bekor qilingan buyurtma yo‘q"
+                )
+                item.setFlags(
+                    Qt.ItemFlag.NoItemFlags
+                )
+                item.setSizeHint(
+                    QSize(0, 58)
+                )
+                self.cancelled_list.addItem(
+                    item
+                )
+                return
+
+            for order in data:
+                kind = (
+                    "CHOYXONADA"
+                    if order["order_type"] == "CHAYKHANA"
+                    else "YETKAZIB BERISH"
+                )
+
+                text = (
+                    f"#{order['order_number']} · {kind}\n"
+                    f"{format_money(order['total_amount'])}"
+                )
+
+                if order.get("cancel_reason"):
+                    text += (
+                        "\nSabab: "
+                        + str(order["cancel_reason"])
+                    )
+
+                item = QListWidgetItem(text)
+
+                item.setData(
+                    Qt.ItemDataRole.UserRole,
+                    int(order["id"]),
+                )
+
+                item.setSizeHint(
+                    QSize(0, 88)
+                )
+
+                self.cancelled_list.addItem(
+                    item
+                )
+
+        except Exception as error:
+            self.on_error(error)
+
+    def open_cancelled_order(self, item):
+        order_id = item.data(
+            Qt.ItemDataRole.UserRole
+        )
+
+        if not order_id:
+            return
+
+        dialog = CancelledOrderDialog(
+            self.client,
+            int(order_id),
+            self.on_error,
+            self,
+        )
+        dialog.exec()
 
     def load_history(self):
         try:

@@ -169,6 +169,17 @@ class PosApiClient:
         assert isinstance(response, dict)
         return response
 
+    def cancel_order(
+        self,
+        order_id: int,
+        reason: str,
+    ) -> dict[str, Any]:
+        response = self.post(
+            f"/api/orders/{order_id}/cancel",
+            {"reason": reason},
+        )
+        return response
+
     def pay_order(self, order_id: int) -> dict[str, Any]:
         response = self.post(f"/api/orders/{order_id}/pay")
         assert isinstance(response, dict)

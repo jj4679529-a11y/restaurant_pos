@@ -102,6 +102,8 @@ class ProductDialog(QDialog):
             if option.get("is_active", True)
         ]
 
+        self.has_configured_options = bool(options)
+
         if self.is_osh:
             options = [
                 option
@@ -194,7 +196,7 @@ class ProductDialog(QDialog):
             format_quantity(self.quantity)
         )
 
-        if self.is_liter:
+        if self.is_liter and not self.has_configured_options:
             body.addWidget(
                 QLabel(
                     "1 litr narxi: "
@@ -691,7 +693,7 @@ class ProductDialog(QDialog):
             and self.option is None
         ):
             raise CartValidationError(
-                "Porsiyani tanlang"
+                "Variantni tanlang"
             )
 
         if self.is_jizz and (

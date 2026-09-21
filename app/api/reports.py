@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from typing import Literal
 from fastapi import APIRouter
 from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import AdminUser, DbSession
 from app.models import BusinessDay, Category, Product, Order, OrderItem, Payment, PaymentStatus, User, DeliveryWorker, OrderType, DailyReport
@@ -49,6 +50,68 @@ def daily_report(db: DbSession, _admin: AdminUser, business_date: date | None = 
     return {'business_date': day_date, 'total_order_count': all_count, 'paid_order_count': count,
             'total_paid_amount': int(total), 'categories': categories, 'products': products,
             'cashiers': cashiers, 'delivery_workers': workers, 'by_order_type': by_type}
+
+
+@router.get('/cancelled')
+def cancelled_orders(
+    db: DbSession,
+    _admin: AdminUser,
+    business_date: date | None = None,
+    period: Literal['kunlik', 'haftalik', 'oylik'] = 'kunlik',
+    order_type: OrderType | None = None,
+):
+    day_date = business_date or get_current_business_date(session=db)
+
+    start = day_date
+    if period == 'haftalik':
+        start = day_date - timedelta(days=day_date.weekday())
+    elif period == 'oylik':
+        start = day_date.replace(day=1)
+
+    day_ids = select(BusinessDay.id).where(
+        BusinessDay.business_date >= start,
+        BusinessDay.business_date <= day_date,
+    )
+
+    query = (
+        select(Order)
+        .where(
+            Order.business_day_id.in_(day_ids),
+            Order.payment_status == PaymentStatus.CANCELLED,
+        )
+        .options(
+            selectinload(Order.delivery_worker),
+            selectinload(Order.canceller),
+        )
+        .order_by(Order.cancelled_at.desc(), Order.id.desc())
+    )
+
+    if order_type is not None:
+        query = query.where(Order.order_type == order_type)
+
+    orders = db.scalars(query).all()
+
+    return [
+        {
+            'id': order.id,
+            'order_number': order.order_number,
+            'order_type': order.order_type.value,
+            'total_amount': order.total_amount,
+            'cancelled_at': order.cancelled_at,
+            'cancel_reason': order.cancel_reason,
+            'cancelled_by': (
+                order.canceller.name
+                if order.canceller is not None
+                else None
+            ),
+            'delivery_worker': (
+                order.delivery_worker.name
+                if order.delivery_worker is not None
+                else None
+            ),
+        }
+        for order in orders
+    ]
 
 
 @router.get('/history')

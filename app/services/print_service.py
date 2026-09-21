@@ -1,3 +1,4 @@
+from app.printer.receipt_layout import build_strict_receipt
 from dataclasses import dataclass
 from datetime import datetime
 from zoneinfo import ZoneInfo

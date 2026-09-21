@@ -1,3 +1,4 @@
+from PySide6.QtWidgets import QScroller
 from PySide6.QtCore import Qt, QSize, QDate
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QListWidget, QListWidgetItem, QPushButton, QComboBox, QInputDialog, QMessageBox
@@ -64,6 +65,12 @@ class ResourcePage(QWidget):
         self.rows.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
+
+        QScroller.grabGesture(
+            self.rows.viewport(),
+            QScroller.ScrollerGestureType.TouchGesture,
+        )
+
         self.rows.itemDoubleClicked.connect(lambda _: self.edit())
         layout.addWidget(self.rows)
         actions = QHBoxLayout()
@@ -88,26 +95,6 @@ class ResourcePage(QWidget):
             actions.addWidget(button)
         actions.addStretch()
         layout.addLayout(actions)
-        if resource == 'products':
-            extra = QHBoxLayout()
-            osh = QPushButton('PORSIYA / VARIANTLAR')
-            osh.setMinimumHeight(52)
-            osh.clicked.connect(self.portions)
-            links = QPushButton('OSH QO‘SHIMCHALARINI SOZLASH')
-            links.setMinimumHeight(52)
-            links.clicked.connect(self.links)
-            extra.addWidget(osh)
-            extra.addWidget(links)
-            layout.addLayout(extra)
-            prepare = QPushButton('MENYUDAGI YETISHMAYOTGANLARNI TAYYORLASH')
-            prepare.setMinimumHeight(52)
-            prepare.clicked.connect(self.prepare_menu)
-            layout.addWidget(prepare)
-        if resource in {'products', 'addons'}:
-            quick = QPushButton('4 TA TEZKOR NARXNI SOZLASH')
-            quick.setMinimumHeight(52)
-            quick.clicked.connect(self.quick_prices)
-            layout.addWidget(quick)
         self.notice = QLabel()
         self.notice.setWordWrap(True)
         layout.addWidget(self.notice)
@@ -134,13 +121,30 @@ class ResourcePage(QWidget):
     def load(self):
         try:
             records = self.client.list_records(self.resource)
+
             if self.resource == 'products':
+                try:
+                    self.menu_addons = self.client.list_records(
+                        "addons"
+                    )
+                except Exception:
+                    self.menu_addons = []
+
                 selected = self.category.currentData()
                 self.category.blockSignals(True)
                 self.category.clear()
                 self.category.addItem('Barcha menyu bo‘limlari', None)
-                for row in self.client.list_records('categories'):
-                    self.category.addItem(row['name'], row['id'])
+                categories = self.client.list_records('categories')
+                self.category_names = {
+                    row['id']: row['name']
+                    for row in categories
+                }
+
+                for row in categories:
+                    self.category.addItem(
+                        row['name'],
+                        row['id'],
+                    )
                 self.category.setCurrentIndex(max(0, self.category.findData(selected)))
                 self.category.blockSignals(False)
             self.target_names = {}
@@ -171,10 +175,79 @@ class ResourcePage(QWidget):
             active = 'Faol' if record.get('is_active', True) else 'Nofaol'
             text = record.get('name', record.get('key', ''))
             if self.resource == 'products':
-                price = 'Narxni kassir kiritadi' if record['allows_manual_price'] else format_money(record['base_price']) + ' / ' + {'PIECE': 'dona', 'PORTION': 'porsiya', 'LITER': 'litr', 'AMOUNT': 'summa'}.get(record['unit_type'], '')
-                if menu_name(record['name']) == 'osh':
-                    price = 'Admin belgilagan porsiyalar'
-                text += f" · {price}"
+                unit_labels = {
+                    'PIECE': 'Dona',
+                    'PORTION': 'Porsiya',
+                    'LITER': 'Litr',
+                    'AMOUNT': 'Kassir qo‘lda narx kiritadi',
+                }
+
+                unit = unit_labels.get(
+                    record.get('unit_type'),
+                    '—',
+                )
+
+                if menu_name(
+                    record.get("name", "")
+                ) == "osh":
+                    option_prices = {
+                        option.get("name"):
+                        option.get("price", 0)
+                        for option in record.get(
+                            "price_options",
+                            []
+                        )
+                        if option.get(
+                            "is_active",
+                            True,
+                        )
+                    }
+
+                    half = option_prices.get(
+                        "0.5 porsiya",
+                        0,
+                    )
+                    full = option_prices.get(
+                        "1 porsiya",
+                        0,
+                    )
+
+                    price = (
+                        "0.5: "
+                        + format_money(half)
+                        + "   ·   1: "
+                        + format_money(full)
+                    )
+
+                elif record.get(
+                    'allows_manual_price',
+                    False,
+                ):
+                    price = 'Kassir kiritadi'
+
+                else:
+                    price = format_money(
+                        record.get(
+                            'base_price',
+                            0,
+                        )
+                    )
+
+                category_name = getattr(
+                    self,
+                    'category_names',
+                    {},
+                ).get(
+                    record.get('category_id'),
+                    '—',
+                )
+
+                text = (
+                    f"{record['name']}\n"
+                    f"Narxi: {price}\n"
+                    f"Menyu bo‘limi: {category_name}"
+                    f"   ·   Sotish usuli: {unit}"
+                )
             elif self.resource == 'addons':
                 if menu_name(record['name']) in {'gosht', "go'sht"}:
                     text += '\n4 ta tezkor narx + boshqa narx (min 5 000 so‘m)'
@@ -196,25 +269,145 @@ class ResourcePage(QWidget):
             row.setSizeHint(
                 QSize(
                     0,
-                    92 if self.resource == 'products' else 74,
+                    108 if self.resource == 'products' else 74,
                 )
             )
             if self.resource == 'products':
                 row.setIcon(QIcon(product_pixmap(self.client.load_image(record.get('image_path')))))
             self.rows.addItem(row)
 
+        # Osh qo‘shimchalari ham egasi uchun
+        # MAHSULOTLAR ro‘yxatining bir qismi.
+        if self.resource == "products":
+            for addon in getattr(
+                self,
+                "menu_addons",
+                [],
+            ):
+                key = menu_name(
+                    addon.get("name", "")
+                )
+
+                if key not in {
+                    "tuxum",
+                    "tuxum1",
+                    "bedanatuxum",
+                    "qazi",
+                    "gosht",
+                }:
+                    continue
+
+                item_record = dict(addon)
+                item_record["_strict_resource"] = "addons"
+
+                if addon.get(
+                    "allows_manual_price",
+                    False,
+                ):
+                    price = "Kassir kiritadi"
+                    method = (
+                        "Kassir qo‘lda narx kiritadi"
+                    )
+                else:
+                    price = format_money(
+                        addon.get(
+                            "base_price",
+                            0,
+                        )
+                    )
+                    method = "Dona"
+
+                active = (
+                    "Faol"
+                    if addon.get(
+                        "is_active",
+                        True,
+                    )
+                    else "Nofaol"
+                )
+
+                text = (
+                    f"{addon['name']}\n"
+                    f"Narxi: {price}\n"
+                    "Menyu bo‘limi: Osh qo‘shimchalari"
+                    f"   ·   Sotish usuli: {method}\n"
+                    f"{active}"
+                )
+
+                row = QListWidgetItem(text)
+                row.setData(
+                    Qt.ItemDataRole.UserRole,
+                    item_record,
+                )
+                row.setSizeHint(
+                    QSize(0, 108)
+                )
+
+                self.rows.addItem(row)
+
     def edit(self, new=False):
+        if new and self.resource == "products":
+            from app.ui.admin.menu_wizard import StrictMenuWizard
+
+            wizard = StrictMenuWizard(
+                self.client,
+                self.on_error,
+                self,
+            )
+
+            if wizard.run():
+                self.load()
+                self.notice.setText(
+                    "Muvaffaqiyatli saqlandi."
+                )
+
+            return
+
         original = None if new else self.selected()
+
         if not new and original is None:
             return
-        if self.resource == 'products' and original and menu_name(original['name']) == 'osh':
-            self.portions()
+
+        if (
+            self.resource == "products"
+            and original
+        ):
+            try:
+                from app.ui.admin.menu_wizard import (
+                    edit_strict_record,
+                )
+
+                if edit_strict_record(
+                    self.client,
+                    original,
+                    self.on_error,
+                    self,
+                ):
+                    self.load()
+                    self.notice.setText(
+                        "Muvaffaqiyatli saqlandi."
+                    )
+
+            except Exception as error:
+                self.on_error(error)
+
             return
+
         try:
-            dialog = RecordEditor(self.resource, self.client, original, self.on_error, self)
+            dialog = RecordEditor(
+                self.resource,
+                self.client,
+                original,
+                self.on_error,
+                self,
+            )
+
             if dialog.exec():
                 self.load()
-                self.notice.setText('Muvaffaqiyatli saqlandi.')
+                self.notice.setText(
+                    "Muvaffaqiyatli saqlandi."
+                )
+
         except Exception as error:
             self.on_error(error)
 
@@ -388,6 +581,12 @@ class Dashboard(QWidget):
         self.catalog.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
+
+        QScroller.grabGesture(
+            self.catalog.viewport(),
+            QScroller.ScrollerGestureType.TouchGesture,
+        )
+
         layout.addWidget(self.catalog, 1)
 
     def load(self):
