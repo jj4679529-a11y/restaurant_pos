@@ -47,9 +47,17 @@ class EscPosPrinter:
 
             powershell_script = (
                 "$ErrorActionPreference='Stop'; "
-                "$text = Get-Content -LiteralPath $args[0] -Raw -Encoding UTF8; "
-                "$text | Out-Printer -Name $args[1]"
+                "$path = $env:RESTAURANT_POS_PRINT_FILE; "
+                "$printer = $env:RESTAURANT_POS_PRINTER_NAME; "
+                "if ([string]::IsNullOrWhiteSpace($path)) { throw 'Print file path is missing' }; "
+                "if ([string]::IsNullOrWhiteSpace($printer)) { throw 'Printer name is missing' }; "
+                "$text = Get-Content -LiteralPath $path -Raw -Encoding UTF8; "
+                "$text | Out-Printer -Name $printer"
             )
+
+            process_env = os.environ.copy()
+            process_env["RESTAURANT_POS_PRINT_FILE"] = str(temp_path)
+            process_env["RESTAURANT_POS_PRINTER_NAME"] = printer_name
 
             result = subprocess.run(
                 [
@@ -58,12 +66,11 @@ class EscPosPrinter:
                     "-NonInteractive",
                     "-Command",
                     powershell_script,
-                    str(temp_path),
-                    printer_name,
                 ],
                 capture_output=True,
                 text=True,
                 timeout=20,
+                env=process_env,
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
 
