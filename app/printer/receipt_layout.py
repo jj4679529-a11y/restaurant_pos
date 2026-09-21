@@ -344,4 +344,10 @@ def build_strict_receipt(
         else:
             safe_lines.extend(_wrap(line))
 
-    return "\n".join(safe_lines)
+    # Thermal / Generic Text printer:
+    # CRLF har yangi satrni qog'ozning chap boshidan boshlaydi.
+    # Chek tugagach qog'ozni oldinga chiqaramiz.
+    # Bu keyingi chek bilan oraliq beradi va qog'oz printer ichida qolib ketmaydi.
+    feed_lines = ["", "", "", "", "", ""]
+
+    return "\r\n".join(safe_lines + feed_lines)
