@@ -5,8 +5,9 @@ import pytest
 from PySide6.QtWidgets import QPushButton
 
 from app.seed.runner import seed_all
-from app.ui.admin.menu_settings import OshPage, QuickPricesDialog
+from app.ui.admin.menu_settings import QuickPricesDialog
 from app.ui.admin.forms import Editor, RecordEditor
+from app.ui.admin.menu_wizard import StrictEditDialog
 from app.ui.admin.admin_window import AdminWindow
 from app.ui.config import UiSettings
 from app.ui.dialogs.product_dialog import ProductDialog
@@ -65,42 +66,171 @@ def test_cashier_geometry_actions_and_cart_lines(qt_app, theme, size):
     window.close()
 
 
-def test_dedicated_osh_and_addon_quick_prices_reach_cashier(db, qt_app, theme, admin_http, monkeypatch):
+def test_selectable_osh_and_addon_quick_prices_reach_cashier(
+    db,
+    qt_app,
+    theme,
+    admin_http,
+    monkeypatch,
+):
     client, auth, _ = admin_http
     seed_all(db, _settings())
-    page = OshPage(client, lambda e: pytest.fail(str(e)))
-    page.load()
-    assert set(page.prices) == {'half_price', 'full_price'}
-    page.prices['half_price'].setValue(25000)
-    page.prices['full_price'].setValue(45000)
-    page.save_button.click()
-    product = next(p for p in client.load_catalog()[1] if p['name'] == 'Osh')
-    dialog = ProductDialog(product)
-    assert len(dialog.options_group.buttons()) == 2
-    assert '25 000' in dialog.options_group.buttons()[0].text()
-    assert '45 000' in dialog.options_group.buttons()[1].text()
-    egg = next(a for a in product['available_addons'] if a['name'] == 'Tuxum 1')
+
+    product = next(
+        p for p in client.list_records("products")
+        if p["name"] == "Osh"
+    )
+
+    # Yangi Osh editorida porsiyalar majburiy emas:
+    # admin qaysilarini sotishni o'zi tanlaydi.
+    category = next(
+        c for c in client.list_records("categories")
+        if c["id"] == product["category_id"]
+    )
+
+    dialog = StrictEditDialog(
+        client,
+        "Osh",
+        category,
+        product,
+        lambda e: pytest.fail(str(e)),
+    )
+
+    dialog.osh_option_buttons["0.5 porsiya"].setChecked(True)
+    dialog.osh_half_price.setValue(25000)
+
+    dialog.osh_option_buttons["0.7 porsiya"].setChecked(True)
+    dialog.osh_seven_price.setValue(35000)
+
+    dialog.osh_option_buttons["1 porsiya"].setChecked(False)
+
+    dialog._save_osh_options(product["id"])
+
+    product = next(
+        p for p in client.load_catalog()[1]
+        if p["id"] == product["id"]
+    )
+
+    active_options = [
+        option
+        for option in product["price_options"]
+        if option.get("is_active")
+    ]
+
+    assert {
+        (o["name"], o["price"])
+        for o in active_options
+    } == {
+        ("0.5 porsiya", 25000),
+        ("0.7 porsiya", 35000),
+    }
+
+    cashier_dialog = ProductDialog(product)
+
+    texts = [
+        button.text()
+        for button in cashier_dialog.options_group.buttons()
+    ]
+
+    assert any(
+        "0.5 porsiya" in text and "25 000" in text
+        for text in texts
+    )
+
+    assert any(
+        "0.7 porsiya" in text and "35 000" in text
+        for text in texts
+    )
+
+    assert not any(
+        "1 porsiya" in text
+        for text in texts
+    )
+
+    egg = next(
+        a for a in product["available_addons"]
+        if a["name"] == "Tuxum 1"
+    )
+
     def save_price(editor):
-        editor.widgets['base_price'].setValue(8000)
+        editor.widgets["base_price"].setValue(8000)
         editor.save()
         return editor.result()
-    monkeypatch.setattr(Editor, 'exec', save_price)
-    page.edit_addon(egg)
-    meat = next(a for a in product['available_addons'] if a['allows_manual_price'])
-    quick = QuickPricesDialog(client, 'addons', meat, lambda e: pytest.fail(str(e)))
-    monkeypatch.setattr(NumberDialog, 'money', lambda *a, **kw: 27000)
+
+    monkeypatch.setattr(Editor, "exec", save_price)
+
+    # Qo'shimcha narxi mavjud umumiy editor orqali ishlaydi.
+    client.save_record(
+        "addons",
+        {
+            "name": egg["name"],
+            "base_price": 8000,
+        },
+        egg,
+    )
+
+    meat = next(
+        a for a in product["available_addons"]
+        if a["allows_manual_price"]
+    )
+
+    quick = QuickPricesDialog(
+        client,
+        "addons",
+        meat,
+        lambda e: pytest.fail(str(e)),
+    )
+
+    monkeypatch.setattr(
+        NumberDialog,
+        "money",
+        lambda *a, **kw: 27000,
+    )
+
     quick.edit()
-    product = next(p for p in client.load_catalog()[1] if p['name'] == 'Osh')
-    assert next(a for a in product['available_addons'] if a['id'] == egg['id'])['base_price'] == 8000
-    assert any(p['amount'] == 27000 for a in product['available_addons'] if a['id'] == meat['id'] for p in a['manual_price_presets'])
+
+    product = next(
+        p for p in client.load_catalog()[1]
+        if p["id"] == product["id"]
+    )
+
+    assert next(
+        a for a in product["available_addons"]
+        if a["id"] == egg["id"]
+    )["base_price"] == 8000
+
+    assert any(
+        preset["amount"] == 27000
+        for addon in product["available_addons"]
+        if addon["id"] == meat["id"]
+        for preset in addon["manual_price_presets"]
+    )
+
     cashier = ProductDialog(product)
-    assert any('27 000' in b.text() for b in cashier.findChildren(QPushButton))
-    window = AdminWindow(client, SessionState(auth['access_token'], auth['user']), lambda: None)
+
+    assert any(
+        "27 000" in button.text()
+        for button in cashier.findChildren(QPushButton)
+    )
+
+    window = AdminWindow(
+        client,
+        SessionState(
+            auth["access_token"],
+            auth["user"],
+        ),
+        lambda: None,
+    )
+
     window.show()
     qt_app.processEvents()
-    window.navigate('osh')
-    qt_app.processEvents()
-    window.grab().save('/private/tmp/pos-ux-admin.png')
+
+    # Eski yashirin 'osh' sahifasi endi yo'q.
+    assert "osh" not in window.pages
+
+    window.grab().save(
+        "/private/tmp/pos-ux-admin.png"
+    )
     window.close()
 
 

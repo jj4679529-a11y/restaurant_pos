@@ -3,7 +3,6 @@ from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QP
 
 from app.ui.api_client import ApiAuthenticationError, ApiConnectionError, ApiError
 from app.ui.admin.pages import Dashboard, ResourcePage, TITLES
-from app.ui.admin.menu_settings import OshPage
 from app.ui.admin.reports import ReportsPage
 
 
@@ -67,13 +66,12 @@ class AdminWindow(QMainWindow):
         self.stack = QStackedWidget()
         self.pages = {'dashboard': Dashboard(client, self.handle_error, self)}
         self.pages.update({key: ResourcePage(key, client, self.handle_error, self) for key in TITLES})
-        self.pages['osh'] = OshPage(client, self.handle_error, self)
         self.pages['reports'] = ReportsPage(client, self.handle_error, self)
-        self.pages = {key: self.pages[key] for key in ('dashboard', 'products', 'workers', 'users', 'reports', 'printers', 'settings', 'categories', 'osh', 'addons', 'presets')}
+        self.pages = {key: self.pages[key] for key in ('dashboard', 'products', 'workers', 'users', 'reports', 'printers', 'settings', 'categories', 'addons', 'presets')}
         self.nav_buttons = {}
         for key, page in self.pages.items():
             self.stack.addWidget(page)
-            if key in {'categories', 'osh', 'addons', 'presets'}:
+            if key in {'categories', 'addons', 'presets'}:
                 continue
             label = {
                 'dashboard': 'Dashboard',
@@ -111,12 +109,13 @@ class AdminWindow(QMainWindow):
         QTimer.singleShot(0, lambda: self.navigate('dashboard'))
 
     def navigate(self, key):
-        current = self.stack.currentWidget()
-        if isinstance(current, OshPage) and not current.can_leave():
-            return
         self.stack.setCurrentWidget(self.pages[key])
         for name, button in self.nav_buttons.items():
-            button.setChecked(name == key or name == 'products' and key in {'categories', 'osh', 'addons', 'presets'})
+            button.setChecked(
+                name == key
+                or name == 'products'
+                and key in {'categories', 'addons', 'presets'}
+            )
         self.pages[key].load()
 
     def handle_error(self, error):
@@ -131,9 +130,6 @@ class AdminWindow(QMainWindow):
 
     def logout(self, _checked=False, *, force=False):
         if self._logged_out:
-            return
-        current = self.stack.currentWidget()
-        if not force and isinstance(current, OshPage) and not current.can_leave():
             return
         self._logged_out = True
         self.client.clear_session()

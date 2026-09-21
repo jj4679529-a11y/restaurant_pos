@@ -186,16 +186,42 @@ class StrictCreateDialog(QDialog):
         self.price.setSuffix(" so‘m")
         self.price.setMinimumHeight(54)
 
-        # Osh uchun qat’iy 0.5 va 1 porsiya narxlari.
+        # Osh: admin sotiladigan porsiyalarni o'zi tanlaydi.
         self.osh_half_price = QSpinBox()
         self.osh_half_price.setRange(0, 2_147_483_647)
         self.osh_half_price.setSuffix(" so‘m")
         self.osh_half_price.setMinimumHeight(54)
 
+        self.osh_seven_price = QSpinBox()
+        self.osh_seven_price.setRange(0, 2_147_483_647)
+        self.osh_seven_price.setSuffix(" so‘m")
+        self.osh_seven_price.setMinimumHeight(54)
+
         self.osh_full_price = QSpinBox()
         self.osh_full_price.setRange(0, 2_147_483_647)
         self.osh_full_price.setSuffix(" so‘m")
         self.osh_full_price.setMinimumHeight(54)
+
+        self.osh_option_buttons = {}
+        self.osh_option_fields = {
+            "0.5 porsiya": self.osh_half_price,
+            "0.7 porsiya": self.osh_seven_price,
+            "1 porsiya": self.osh_full_price,
+        }
+
+        for label in self.osh_option_fields:
+            button = QPushButton(label)
+            button.setCheckable(True)
+            button.setMinimumHeight(58)
+            button.setProperty("role", "secondary")
+            button.toggled.connect(
+                lambda checked, name=label:
+                self._toggle_osh_option(name, checked)
+            )
+            self.osh_option_buttons[label] = button
+
+        for field in self.osh_option_fields.values():
+            field.setEnabled(False)
 
         self.price_button = QPushButton("NARXNI KIRITISH")
         self.price_button.setMinimumHeight(54)
@@ -288,6 +314,54 @@ class StrictCreateDialog(QDialog):
     def add_price(self, label="Narxi"):
         self.form.addRow(label, self.price_row)
 
+    def _toggle_osh_option(self, name, checked):
+        field = self.osh_option_fields[name]
+        field.setEnabled(checked)
+
+        if not checked:
+            field.setValue(0)
+
+    def _selected_osh_options(self):
+        quantities = {
+            "0.5 porsiya": "0.5",
+            "0.7 porsiya": "0.7",
+            "1 porsiya": "1",
+        }
+
+        options = []
+
+        for name, button in self.osh_option_buttons.items():
+            if not button.isChecked():
+                continue
+
+            field = self.osh_option_fields[name]
+
+            if field.value() <= 0:
+                raise ValueError(
+                    f"{name} uchun narxni kiriting"
+                )
+
+            options.append(
+                {
+                    "name": name,
+                    "quantity": quantities[name],
+                    "price": field.value(),
+                }
+            )
+
+        if not options:
+            raise ValueError(
+                "Kamida bitta Osh porsiyasini tanlang"
+            )
+
+        return options
+
+    def _save_osh_options(self, product_id):
+        self.client.save_price_options(
+            product_id,
+            self._selected_osh_options(),
+        )
+
     def build_form(self):
         s = self.selection
 
@@ -302,50 +376,35 @@ class StrictCreateDialog(QDialog):
                 self.fixed_value("Porsiyada"),
             )
 
-            half_row = QHBoxLayout()
-            half_row.addWidget(
-                self.osh_half_price,
-                1,
-            )
+            choice_row = QHBoxLayout()
 
-            half_button = QPushButton(
-                "NARXNI KIRITISH"
-            )
-            half_button.setMinimumHeight(54)
-            half_button.clicked.connect(
-                lambda:
-                self.money(
-                    self.osh_half_price
+            for label in (
+                "0.5 porsiya",
+                "0.7 porsiya",
+                "1 porsiya",
+            ):
+                choice_row.addWidget(
+                    self.osh_option_buttons[label]
                 )
+
+            self.form.addRow(
+                "Porsiyani tanlang",
+                choice_row,
             )
-            half_row.addWidget(half_button)
 
             self.form.addRow(
                 "0.5 porsiya narxi",
-                half_row,
+                self.osh_half_price,
             )
 
-            full_row = QHBoxLayout()
-            full_row.addWidget(
-                self.osh_full_price,
-                1,
+            self.form.addRow(
+                "0.7 porsiya narxi",
+                self.osh_seven_price,
             )
-
-            full_button = QPushButton(
-                "NARXNI KIRITISH"
-            )
-            full_button.setMinimumHeight(54)
-            full_button.clicked.connect(
-                lambda:
-                self.money(
-                    self.osh_full_price
-                )
-            )
-            full_row.addWidget(full_button)
 
             self.form.addRow(
                 "1 porsiya narxi",
-                full_row,
+                self.osh_full_price,
             )
 
             return
@@ -678,13 +737,7 @@ class StrictCreateDialog(QDialog):
             # PRODUCT
             # ------------------------------------------
             if s == "Osh":
-                if (
-                    self.osh_half_price.value() <= 0
-                    or self.osh_full_price.value() <= 0
-                ):
-                    raise ValueError(
-                        "0.5 va 1 porsiya narxlarini kiriting"
-                    )
+                self._selected_osh_options()
 
             elif s == "Nonlar":
                 if any(
@@ -787,10 +840,8 @@ class StrictCreateDialog(QDialog):
             )
 
             if s == "Osh":
-                self.client.save_osh_prices(
-                    product["id"],
-                    half_price=self.osh_half_price.value(),
-                    full_price=self.osh_full_price.value(),
+                self._save_osh_options(
+                    product["id"]
                 )
 
             if s == "Nonlar":
@@ -1115,6 +1166,10 @@ class StrictEditDialog(StrictCreateDialog):
                 self.volume.setCurrentIndex(index)
 
         if self.selection == "Osh":
+            # Avval barcha variantlarni o'chiramiz.
+            for button in self.osh_option_buttons.values():
+                button.setChecked(False)
+
             for option in original.get(
                 "price_options",
                 [],
@@ -1125,15 +1180,20 @@ class StrictEditDialog(StrictCreateDialog):
                 ):
                     continue
 
-                if option.get("name") == "0.5 porsiya":
-                    self.osh_half_price.setValue(
-                        int(option.get("price") or 0)
-                    )
+                name = option.get("name")
 
-                elif option.get("name") == "1 porsiya":
-                    self.osh_full_price.setValue(
-                        int(option.get("price") or 0)
-                    )
+                if name not in self.osh_option_fields:
+                    continue
+
+                self.osh_option_buttons[
+                    name
+                ].setChecked(True)
+
+                self.osh_option_fields[
+                    name
+                ].setValue(
+                    int(option.get("price") or 0)
+                )
 
         if self.selection == "Nonlar":
             for option in original.get("price_options", []):
@@ -1333,13 +1393,7 @@ class StrictEditDialog(StrictCreateDialog):
             manual = s == "Jizz"
 
             if s == "Osh":
-                if (
-                    self.osh_half_price.value() <= 0
-                    or self.osh_full_price.value() <= 0
-                ):
-                    raise ValueError(
-                        "0.5 va 1 porsiya narxlarini kiriting"
-                    )
+                self._selected_osh_options()
 
             elif s == "Nonlar":
                 if any(
@@ -1437,10 +1491,8 @@ class StrictEditDialog(StrictCreateDialog):
             )
 
             if s == "Osh":
-                self.client.save_osh_prices(
-                    self.original["id"],
-                    half_price=self.osh_half_price.value(),
-                    full_price=self.osh_full_price.value(),
+                self._save_osh_options(
+                    self.original["id"]
                 )
 
             if s == "Nonlar":

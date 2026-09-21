@@ -437,24 +437,6 @@ class ResourcePage(QWidget):
         QuickPricesDialog(self.client, self.resource, target, self.on_error, self).exec()
         self.load()
 
-    def osh_prices(self):
-        product = self.selected()
-        if not product or menu_name(product['name']) != 'osh':
-            QMessageBox.information(self, 'Osh', 'Ro‘yxatdan Oshni tanlang')
-            return
-        values = {}
-        for option in product.get('price_options', []):
-            if option['name'] in {'0.5 porsiya', '1 porsiya'} and option['is_active']:
-                values['half_price' if option['name'] == '0.5 porsiya' else 'full_price'] = option['price']
-        fields = [('half_price', '0.5 porsiya', 'money'), ('full_price', '1 porsiya', 'money')]
-        def save(data):
-            if not data['half_price'] or not data['full_price']:
-                raise ValueError('Ikkala porsiya narxi ham musbat bo‘lishi kerak')
-            self.client.save_osh_prices(product['id'], **data)
-        dialog = Editor('OSH — porsiya narxlari', fields, values, save, self.on_error, self)
-        if dialog.exec():
-            self.load()
-            self.notice.setText('Ikkala Osh porsiya narxi saqlandi. Eski variantlar nofaol saqlandi.')
 
     def links(self):
         product = self.selected()

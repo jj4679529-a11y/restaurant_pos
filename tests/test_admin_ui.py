@@ -143,56 +143,171 @@ def test_admin_dashboard_and_all_pages(qt_app, admin_http):
     window.close()
 
 
-def test_osh_editor_atomic_two_prices_and_cashier_sees_changes(db, qt_app, admin_http, monkeypatch):
+def test_osh_selectable_price_options_and_cashier_sees_changes(
+    db,
+    qt_app,
+    admin_http,
+    monkeypatch,
+):
     client, _, cashier_username = admin_http
     seed_all(db, _settings())
     db.flush()
-    page = ResourcePage('products', client, lambda error: pytest.fail(str(error)))
-    page.load()
-    osh = next(p for p in page.records if p['name'] == 'Osh')
-    for index in range(page.rows.count()):
-        if 'Osh' in page.rows.item(index).text():
-            page.rows.setCurrentRow(index)
-            break
-    def edit_both(dialog):
-        assert set(dialog.widgets) == {'half_price', 'full_price'}
-        fill(dialog, {'half_price': 18500, 'full_price': 33500})
-        dialog.save()
-        return dialog.result()
-    monkeypatch.setattr(Editor, 'exec', edit_both)
-    page.osh_prices()
-    product = next(p for p in client.load_catalog()[1] if p['id'] == osh['id'])
-    options = [p for p in product['price_options'] if p['is_active']]
-    assert {(o['name'], o['price']) for o in options} == {('0.5 porsiya', 18500), ('1 porsiya', 33500)}
-    assert not product['allows_manual_price']
-    assert all(not o['is_active'] for o in product['price_options'] if o['name'] not in {'0.5 porsiya', '1 porsiya'})
-    # A second save updates the same two identities, never duplicates them.
-    ids = {o['id'] for o in options}
-    client.save_osh_prices(osh['id'], 19000, 34000)
+
+    osh = next(
+        p for p in client.list_records("products")
+        if p["name"] == "Osh"
+    )
+
+    # Admin 0.5 va 0.7 ni tanlaydi, 1 porsiya nofaol bo'ladi.
+    client.save_price_options(
+        osh["id"],
+        [
+            {
+                "name": "0.5 porsiya",
+                "quantity": "0.5",
+                "price": 18500,
+            },
+            {
+                "name": "0.7 porsiya",
+                "quantity": "0.7",
+                "price": 27500,
+            },
+        ],
+    )
+
+    product = client.get(f"/api/products/{osh['id']}")
+
+    active = [
+        option
+        for option in product["price_options"]
+        if option.get("is_active")
+    ]
+
+    assert {
+        (o["name"], o["price"])
+        for o in active
+    } == {
+        ("0.5 porsiya", 18500),
+        ("0.7 porsiya", 27500),
+    }
+
+    assert not product["allows_manual_price"]
+
+    assert all(
+        not option["is_active"]
+        for option in product["price_options"]
+        if option["name"] not in {
+            "0.5 porsiya",
+            "0.7 porsiya",
+        }
+    )
+
+    ids = {
+        option["name"]: option["id"]
+        for option in active
+    }
+
+    # Ikkinchi save mavjud optionlarni update qiladi,
+    # duplicate yaratmaydi.
+    client.save_price_options(
+        osh["id"],
+        [
+            {
+                "name": "0.5 porsiya",
+                "quantity": "0.5",
+                "price": 19000,
+            },
+            {
+                "name": "0.7 porsiya",
+                "quantity": "0.7",
+                "price": 28000,
+            },
+        ],
+    )
+
     updated = client.get(f"/api/products/{osh['id']}")
-    assert {o['id'] for o in updated['price_options'] if o['is_active']} == ids
+
+    updated_active = [
+        option
+        for option in updated["price_options"]
+        if option.get("is_active")
+    ]
+
+    assert {
+        option["name"]: option["id"]
+        for option in updated_active
+    } == ids
+
     from app.ui.api_client import PosApiClient
     from app.ui.main_window import PosMainWindow
     from app.ui.config import UiSettings
     from app.ui.dialogs.product_dialog import ProductDialog
-    cashier_client = PosApiClient('http://testserver', transport=client._transport)
-    auth = cashier_client.login(cashier_username, 'test-password')
-    assert auth['user']['role'] == 'CASHIER'
-    cashier_window = PosMainWindow(cashier_client, SessionState(auth['access_token'], auth['user']), UiSettings(), lambda: None)
+
+    cashier_client = PosApiClient(
+        "http://testserver",
+        transport=client._transport,
+    )
+
+    auth = cashier_client.login(
+        cashier_username,
+        "test-password",
+    )
+
+    assert auth["user"]["role"] == "CASHIER"
+
+    cashier_window = PosMainWindow(
+        cashier_client,
+        SessionState(
+            auth["access_token"],
+            auth["user"],
+        ),
+        UiSettings(),
+        lambda: None,
+    )
+
     from tests.ui_helpers import wait_for_catalog
-    wait_for_catalog(cashier_window, qt_app)
-    cashier_product = next(p for p in cashier_window.products if p['id'] == osh['id'])
-    picker = ProductDialog(cashier_product, parent=cashier_window)
-    picker.options_group.buttons()[0].click()
-    assert picker._item().unit_price == 19000
-    picker.options_group.buttons()[1].click()
-    assert picker._item().unit_price == 34000
-    picker.close()
+
+    wait_for_catalog(
+        cashier_window,
+        qt_app,
+    )
+
+    cashier_product = next(
+        p for p in cashier_window.products
+        if p["id"] == osh["id"]
+    )
+
+    picker = ProductDialog(
+        cashier_product,
+        parent=cashier_window,
+    )
+
+    texts = [
+        button.text()
+        for button in picker.options_group.buttons()
+    ]
+
+    assert any(
+        "0.5 porsiya" in text
+        and "19 000" in text
+        for text in texts
+    )
+
+    assert any(
+        "0.7 porsiya" in text
+        and "28 000" in text
+        for text in texts
+    )
+
+    assert not any(
+        "1 porsiya" in text
+        for text in texts
+    )
+
     cashier_window.close()
-    page.close()
 
 
-@pytest.mark.parametrize('target', ['gosht', 'jizz'])
+@pytest.mark.parametrize("target", ["gosht", "jizz"])
 def test_manual_presets_form_crud_sort_and_rules(db, qt_app, admin_http, target):
     client, _, _ = admin_http
     seed_all(db, _settings())
