@@ -44,7 +44,7 @@ class AdminApiClient(PosApiClient):
         if resource == 'products':
             return self._all_pages(path + '?is_active=true') + self._all_pages(path + '?is_active=false')
         if resource == 'presets':
-            path = '/api/admin/manual-price-presets'
+            return self._all_pages('/api/admin/manual-price-presets')
         if resource == 'settings':
             return self.get(path)
         return self._all_pages(path)
