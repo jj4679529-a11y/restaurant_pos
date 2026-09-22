@@ -308,9 +308,21 @@ class StrictCreateDialog(QDialog):
             )
 
             for label, _value in OSH_PORTIONS:
+                field = self.osh_prices[label]
+
+                row = QHBoxLayout()
+                row.addWidget(field, 1)
+
+                button = QPushButton("NARX")
+                button.setMinimumHeight(54)
+                button.clicked.connect(
+                    lambda _=False, f=field: self.money(f)
+                )
+
+                row.addWidget(button)
                 self.form.addRow(
-                    label,
-                    self.osh_prices[label],
+                    f"{label} narxi",
+                    row,
                 )
 
             return
