@@ -562,7 +562,7 @@ class StrictCreateDialog(QDialog):
         for index, amount in enumerate(values):
             self.client.request(
                 "POST",
-                "/api/admin/manual-price-presets",
+                "/api/manual-price-presets",
                 {
                     target_field: target["id"],
                     "amount": amount,
