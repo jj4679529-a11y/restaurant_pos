@@ -54,7 +54,7 @@ class EscPosPrinter:
 
         # Thermal printer uchun pastki feed.
         if not text.endswith("\r\n\r\n\r\n\r\n\r\n\r\n"):
-            text = text.rstrip("\r\n") + ("\r\n" * 6)
+            text = text.rstrip("\r\n") + ("\r\n" * 12)
 
         try:
             raw = text.encode("ascii", errors="replace")

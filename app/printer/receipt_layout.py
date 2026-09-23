@@ -348,6 +348,6 @@ def build_strict_receipt(
     # CRLF har yangi satrni qog'ozning chap boshidan boshlaydi.
     # Chek tugagach qog'ozni oldinga chiqaramiz.
     # Bu keyingi chek bilan oraliq beradi va qog'oz printer ichida qolib ketmaydi.
-    feed_lines = ["", "", "", "", "", ""]
+    feed_lines = [""] * 12
 
     return "\r\n".join(safe_lines + feed_lines)
