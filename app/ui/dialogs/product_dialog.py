@@ -192,68 +192,6 @@ class ProductDialog(QDialog):
 
             body.addWidget(other_price)
 
-        self.count_label = QLabel(
-            format_quantity(self.quantity)
-        )
-
-        if self.is_liter and not self.has_configured_options:
-            body.addWidget(
-                QLabel(
-                    "1 litr narxi: "
-                    + format_money(
-                        product.get("base_price", 0)
-                    )
-                )
-            )
-
-            body.addWidget(QLabel("Hajm"))
-
-            volumes = QHBoxLayout()
-            self.volume_group = QButtonGroup(self)
-
-            for value in ("0.5", "1", "1.5", "2"):
-                button = QPushButton(value + " L")
-                button.setMinimumHeight(56)
-                button.setCheckable(True)
-
-                button.setChecked(
-                    self.quantity == Decimal(value)
-                )
-
-                self.volume_group.addButton(button)
-
-                button.clicked.connect(
-                    lambda _=False,
-                    amount=Decimal(value):
-                    self._volume(amount)
-                )
-
-                volumes.addWidget(button)
-
-            body.addLayout(volumes)
-
-            custom = QPushButton("BOSHQA HAJM")
-            custom.setMinimumHeight(56)
-            custom.clicked.connect(self._custom_volume)
-
-            body.addWidget(custom)
-
-            self.count_label.setText(
-                format_quantity(self.quantity) + " L"
-            )
-
-            body.addWidget(self.count_label)
-
-        else:
-            body.addWidget(QLabel("Mahsulot soni"))
-
-            body.addLayout(
-                self._stepper(
-                    self.count_label,
-                    self._count,
-                )
-            )
-
         available_addons = [
             addon
             for addon in product.get(
@@ -415,6 +353,69 @@ class ProductDialog(QDialog):
                 )
 
             body.addLayout(row)
+
+
+        self.count_label = QLabel(
+            format_quantity(self.quantity)
+        )
+
+        if self.is_liter and not self.has_configured_options:
+            body.addWidget(
+                QLabel(
+                    "1 litr narxi: "
+                    + format_money(
+                        product.get("base_price", 0)
+                    )
+                )
+            )
+
+            body.addWidget(QLabel("Hajm"))
+
+            volumes = QHBoxLayout()
+            self.volume_group = QButtonGroup(self)
+
+            for value in ("0.5", "1", "1.5", "2"):
+                button = QPushButton(value + " L")
+                button.setMinimumHeight(56)
+                button.setCheckable(True)
+
+                button.setChecked(
+                    self.quantity == Decimal(value)
+                )
+
+                self.volume_group.addButton(button)
+
+                button.clicked.connect(
+                    lambda _=False,
+                    amount=Decimal(value):
+                    self._volume(amount)
+                )
+
+                volumes.addWidget(button)
+
+            body.addLayout(volumes)
+
+            custom = QPushButton("BOSHQA HAJM")
+            custom.setMinimumHeight(56)
+            custom.clicked.connect(self._custom_volume)
+
+            body.addWidget(custom)
+
+            self.count_label.setText(
+                format_quantity(self.quantity) + " L"
+            )
+
+            body.addWidget(self.count_label)
+
+        else:
+            body.addWidget(QLabel("Mahsulot soni"))
+
+            body.addLayout(
+                self._stepper(
+                    self.count_label,
+                    self._count,
+                )
+            )
 
         body.addStretch()
 
