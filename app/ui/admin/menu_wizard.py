@@ -82,7 +82,7 @@ class ChoiceDialog(QDialog):
         self.choice = None
 
         self.setWindowTitle(title)
-        self.resize(700, 620)
+        self.resize(760, 650)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(20, 20, 20, 20)
@@ -127,7 +127,7 @@ class ChoiceDialog(QDialog):
         root.addWidget(scroll, 1)
 
         cancel = QPushButton("BEKOR QILISH")
-        cancel.setMinimumHeight(56)
+        cancel.setMinimumHeight(64)
         cancel.clicked.connect(self.reject)
         root.addWidget(cancel)
 
@@ -186,12 +186,13 @@ class StrictCreateDialog(QDialog):
         self.form.setContentsMargins(16, 16, 16, 16)
 
         self.name = QLineEdit()
-        self.name.setMinimumHeight(54)
+        self.name.setMinimumHeight(62)
+        self.name.setMinimumHeight(62)
 
         self.price = QSpinBox()
         self.price.setRange(0, 2_147_483_647)
         self.price.setSuffix(" so‘m")
-        self.price.setMinimumHeight(54)
+        self.price.setMinimumHeight(62)
 
         # Osh: admin sotiladigan porsiyalarni o'zi tanlaydi.
         self.osh_prices = {}
@@ -199,11 +200,11 @@ class StrictCreateDialog(QDialog):
             field = QSpinBox()
             field.setRange(0, 2_147_483_647)
             field.setSuffix(" so‘m")
-            field.setMinimumHeight(54)
+            field.setMinimumHeight(62)
             self.osh_prices[label] = field
 
         self.price_button = QPushButton("NARXNI KIRITISH")
-        self.price_button.setMinimumHeight(54)
+        self.price_button.setMinimumHeight(62)
         self.price_button.clicked.connect(
             lambda: self.money(self.price)
         )
@@ -213,12 +214,13 @@ class StrictCreateDialog(QDialog):
         self.price_row.addWidget(self.price_button)
 
         self.volume = QComboBox()
-        self.volume.setMinimumHeight(54)
+        self.volume.setMinimumHeight(62)
+        self.volume.setMinimumHeight(62)
         for label, value in LITERS:
             self.volume.addItem(label, value)
 
         self.bread = QComboBox()
-        self.bread.setMinimumHeight(54)
+        self.bread.setMinimumHeight(62)
         for label, value in BREAD:
             self.bread.addItem(label, value)
 
@@ -229,11 +231,11 @@ class StrictCreateDialog(QDialog):
         image_row = QHBoxLayout()
 
         choose = QPushButton("RASM TANLASH")
-        choose.setMinimumHeight(54)
+        choose.setMinimumHeight(62)
         choose.clicked.connect(self.choose_image)
 
         remove = QPushButton("RASMNI O‘CHIRISH")
-        remove.setMinimumHeight(54)
+        remove.setMinimumHeight(62)
         remove.clicked.connect(self.remove_image)
 
         image_row.addWidget(choose)
@@ -246,7 +248,7 @@ class StrictCreateDialog(QDialog):
             field = QSpinBox()
             field.setRange(0, 2_147_483_647)
             field.setSuffix(" so‘m")
-            field.setMinimumHeight(54)
+            field.setMinimumHeight(62)
             self.bread_prices[label] = field
 
         self.liter_prices = {}
@@ -254,7 +256,7 @@ class StrictCreateDialog(QDialog):
             field = QSpinBox()
             field.setRange(0, 2_147_483_647)
             field.setSuffix(" so‘m")
-            field.setMinimumHeight(54)
+            field.setMinimumHeight(62)
             self.liter_prices[label] = field
 
         self.build_form()
@@ -283,7 +285,7 @@ class StrictCreateDialog(QDialog):
 
     def fixed_value(self, text):
         label = QLabel(text)
-        label.setMinimumHeight(54)
+        label.setMinimumHeight(62)
         label.setAlignment(
             Qt.AlignmentFlag.AlignVCenter
             | Qt.AlignmentFlag.AlignLeft
@@ -314,7 +316,7 @@ class StrictCreateDialog(QDialog):
                 row.addWidget(field, 1)
 
                 button = QPushButton("NARX")
-                button.setMinimumHeight(54)
+                button.setMinimumHeight(62)
                 button.clicked.connect(
                     lambda _=False, f=field: self.money(f)
                 )
@@ -380,7 +382,7 @@ class StrictCreateDialog(QDialog):
                 row.addWidget(field, 1)
 
                 button = QPushButton("NARX")
-                button.setMinimumHeight(54)
+                button.setMinimumHeight(62)
                 button.clicked.connect(
                     lambda _=False, f=field: self.money(f)
                 )
@@ -410,7 +412,7 @@ class StrictCreateDialog(QDialog):
                 row.addWidget(field, 1)
 
                 button = QPushButton("NARX")
-                button.setMinimumHeight(54)
+                button.setMinimumHeight(62)
                 button.clicked.connect(
                     lambda _=False, f=field: self.money(f)
                 )
@@ -459,13 +461,13 @@ class StrictCreateDialog(QDialog):
                 field = QSpinBox()
                 field.setRange(0, 2_147_483_647)
                 field.setSuffix(" so‘m")
-                field.setMinimumHeight(54)
+                field.setMinimumHeight(62)
 
                 row = QHBoxLayout()
                 row.addWidget(field, 1)
 
                 button = QPushButton("NARX")
-                button.setMinimumHeight(54)
+                button.setMinimumHeight(62)
                 button.clicked.connect(
                     lambda _=False, f=field:
                     self.money(f)
@@ -518,11 +520,18 @@ class StrictCreateDialog(QDialog):
 
             self.image_path = self.client.upload_image(data)
 
+            pixmap = product_pixmap(
+                self.client.load_image(
+                    self.image_path
+                )
+            )
+
             self.preview.setPixmap(
-                product_pixmap(
-                    self.client.load_image(
-                        self.image_path
-                    )
+                pixmap.scaled(
+                    340,
+                    200,
+                    Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                    Qt.TransformationMode.SmoothTransformation,
                 )
             )
 
@@ -1068,11 +1077,18 @@ class StrictEditDialog(StrictCreateDialog):
 
         if self.image_path:
             try:
+                pixmap = product_pixmap(
+                    self.client.load_image(
+                        self.image_path
+                    )
+                )
+
                 self.preview.setPixmap(
-                    product_pixmap(
-                        self.client.load_image(
-                            self.image_path
-                        )
+                    pixmap.scaled(
+                        340,
+                        200,
+                        Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                        Qt.TransformationMode.SmoothTransformation,
                     )
                 )
             except Exception:

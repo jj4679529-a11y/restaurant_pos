@@ -45,7 +45,7 @@ class CancelledOrderDialog(QDialog):
         layout.addWidget(self.text, 1)
 
         close = QPushButton("YOPISH")
-        close.setMinimumHeight(52)
+        close.setMinimumHeight(60)
         close.clicked.connect(self.accept)
         layout.addWidget(close)
 
@@ -183,7 +183,7 @@ class ReportsPage(QWidget):
         self.period.addItems(
             ["Kunlik", "Haftalik", "Oylik"]
         )
-        self.period.setMinimumHeight(52)
+        self.period.setMinimumHeight(60)
         self.period.setMinimumWidth(140)
 
         self.order_type = QComboBox()
@@ -199,7 +199,7 @@ class ReportsPage(QWidget):
             "Yetkazib berish",
             "DELIVERY",
         )
-        self.order_type.setMinimumHeight(52)
+        self.order_type.setMinimumHeight(60)
         self.order_type.setMinimumWidth(170)
 
         self.date = QDateEdit(
@@ -209,7 +209,7 @@ class ReportsPage(QWidget):
         self.date.setDisplayFormat(
             "yyyy-MM-dd"
         )
-        self.date.setMinimumHeight(52)
+        self.date.setMinimumHeight(60)
         self.date.setMinimumWidth(150)
 
         load = QPushButton(
@@ -219,7 +219,7 @@ class ReportsPage(QWidget):
             "primary",
             True,
         )
-        load.setMinimumHeight(52)
+        load.setMinimumHeight(60)
         load.clicked.connect(
             lambda:
             self.load(
@@ -232,7 +232,7 @@ class ReportsPage(QWidget):
         today = QPushButton(
             "JORIY BIZNES KUNI"
         )
-        today.setMinimumHeight(52)
+        today.setMinimumHeight(60)
         today.clicked.connect(
             lambda: self.load()
         )

@@ -1,6 +1,6 @@
 from decimal import Decimal, InvalidOperation
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QPushButton
-from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QPushButton, QScroller
+from PySide6.QtCore import QSize, Qt
 from app.ui.admin.forms import Editor
 from app.ui.state import format_money
 
@@ -13,10 +13,19 @@ class PortionsDialog(QDialog):
         self.resize(680, 550)
         layout = QVBoxLayout(self)
         self.rows = QListWidget()
+        self.rows.setObjectName("portionsList")
+        self.rows.setSpacing(5)
+
+        QScroller.grabGesture(
+            self.rows.viewport(),
+            QScroller.ScrollerGestureType.TouchGesture,
+        )
+
         layout.addWidget(self.rows)
         actions = QHBoxLayout()
         for title, callback in [('+ QO‘SHISH', lambda: self.edit()), ('TAHRIRLASH', self.edit_selected), ('YOPISH', self.accept)]:
             button = QPushButton(title)
+            button.setMinimumHeight(64)
             button.clicked.connect(callback)
             actions.addWidget(button)
         layout.addLayout(actions)
@@ -27,7 +36,12 @@ class PortionsDialog(QDialog):
             records = self.client._all_pages(f'/api/products/{self.product["id"]}/price-options')
             self.rows.clear()
             for record in records:
-                self.rows.addItem(f"{record['name']} — {format_money(record['price'])}" + ('' if record['is_active'] else ' · Nofaol'))
+                item = QListWidgetItem(
+                    f"{record['name']} — {format_money(record['price'])}"
+                    + ('' if record['is_active'] else ' · Nofaol')
+                )
+                item.setSizeHint(QSize(0, 72))
+                self.rows.addItem(item)
                 self.rows.item(self.rows.count() - 1).setData(Qt.ItemDataRole.UserRole, record)
         except Exception as error:
             self.on_error(error)

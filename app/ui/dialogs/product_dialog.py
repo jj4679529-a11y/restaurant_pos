@@ -330,7 +330,8 @@ class ProductDialog(QDialog):
                     else "0"
                 )
 
-                count.setMinimumWidth(42)
+                count.setObjectName("quantityValue")
+                count.setMinimumSize(84, 58)
 
                 count.setAlignment(
                     Qt.AlignmentFlag.AlignCenter
@@ -358,6 +359,11 @@ class ProductDialog(QDialog):
         self.count_label = QLabel(
             format_quantity(self.quantity)
         )
+        self.count_label.setObjectName("quantityValue")
+        self.count_label.setAlignment(
+            Qt.AlignmentFlag.AlignCenter
+        )
+        self.count_label.setMinimumSize(100, 64)
 
         if self.is_liter and not self.has_configured_options:
             body.addWidget(

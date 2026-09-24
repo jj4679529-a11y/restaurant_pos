@@ -8,8 +8,13 @@ from app.ui.state import format_money, format_quantity
 def product_pixmap(image_data=None):
     image = QPixmap()
     if image_data and image.loadFromData(image_data):
-        return image.scaled(180, 108, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-    placeholder = QPixmap(180, 108)
+        return image.scaled(
+            220,
+            130,
+            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+    placeholder = QPixmap(220, 130)
     placeholder.fill(QColor("#eef2f3"))
     painter = QPainter(placeholder)
     painter.setPen(QColor("#a8b5b5"))

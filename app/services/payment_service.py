@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import (
@@ -41,17 +41,83 @@ def _locked_order(session: Session, order_id: int) -> Order:
 
 
 def pay_order(session: Session, order_id: int, actor_id: int) -> PaymentResult:
-    """Apply payment state within the transaction owned by the caller."""
+    """Atomically move a pending order to PAID inside the caller transaction."""
     order = _locked_order(session, order_id)
+
     if order.payment_status is PaymentStatus.PAID:
-        raise ServiceError(409, "ORDER_ALREADY_PAID", "Order is already paid")
+        raise ServiceError(
+            409,
+            "ORDER_ALREADY_PAID",
+            "Order is already paid",
+        )
+
     if order.payment_status is PaymentStatus.CANCELLED:
-        raise ServiceError(409, "ORDER_CANCELLED", "Cancelled orders cannot be paid")
+        raise ServiceError(
+            409,
+            "ORDER_CANCELLED",
+            "Cancelled orders cannot be paid",
+        )
+
     if order.payment_status is not PaymentStatus.PENDING:
-        raise ServiceError(409, "ORDER_NOT_PAYABLE", "Order cannot be paid in its current state")
+        raise ServiceError(
+            409,
+            "ORDER_NOT_PAYABLE",
+            "Order cannot be paid in its current state",
+        )
 
     paid_at = datetime.now(TASHKENT)
     actor = _actor(session, actor_id)
+
+    # Compare-and-set:
+    # only the transaction that still sees PENDING may claim payment.
+    result = session.execute(
+        update(Order)
+        .where(
+            Order.id == order_id,
+            Order.payment_status == PaymentStatus.PENDING,
+        )
+        .values(
+            payment_status=PaymentStatus.PAID,
+            paid_at=paid_at,
+        )
+        .execution_options(synchronize_session=False)
+    )
+
+    if result.rowcount != 1:
+        session.expire_all()
+
+        current = session.get(Order, order_id)
+
+        if current is None:
+            raise ServiceError(
+                404,
+                "ORDER_NOT_FOUND",
+                "Order not found",
+            )
+
+        if current.payment_status is PaymentStatus.CANCELLED:
+            raise ServiceError(
+                409,
+                "ORDER_CANCELLED",
+                "Cancelled orders cannot be paid",
+            )
+
+        if current.payment_status is PaymentStatus.PAID:
+            raise ServiceError(
+                409,
+                "ORDER_ALREADY_PAID",
+                "Order is already paid",
+            )
+
+        raise ServiceError(
+            409,
+            "ORDER_STATE_CHANGED",
+            "Order state changed concurrently",
+        )
+
+    order.payment_status = PaymentStatus.PAID
+    order.paid_at = paid_at
+
     payment = Payment(
         order_id=order.id,
         amount=order.total_amount,
@@ -59,15 +125,24 @@ def pay_order(session: Session, order_id: int, actor_id: int) -> PaymentResult:
         paid_at=paid_at,
         created_by=actor.id,
     )
-    order.payment_status = PaymentStatus.PAID
-    order.paid_at = paid_at
+
     session.add(payment)
     session.flush()
-    session.add(TelegramOutbox(
-        message_type=TelegramMessageType.PAID_ORDER,
-        order_id=order.id,
-        message_text=build_paid_order_message(order, actor.name),
-        status=TelegramOutboxStatus.PENDING,
-        attempts=0,
-    ))
-    return PaymentResult(order=order, payment=payment)
+
+    session.add(
+        TelegramOutbox(
+            message_type=TelegramMessageType.PAID_ORDER,
+            order_id=order.id,
+            message_text=build_paid_order_message(
+                order,
+                actor.name,
+            ),
+            status=TelegramOutboxStatus.PENDING,
+            attempts=0,
+        )
+    )
+
+    return PaymentResult(
+        order=order,
+        payment=payment,
+    )

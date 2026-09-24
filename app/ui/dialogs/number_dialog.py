@@ -8,7 +8,8 @@ class NumberDialog(QDialog):
     def __init__(self, title="Qo‘lda narx", presets=(), initial=0, parent=None):
         super().__init__(parent)
         self.setWindowTitle(title)
-        self.setMinimumWidth(420)
+        self.setMinimumWidth(500)
+        self.setMinimumHeight(620)
         self.digits = str(initial) if initial else ""
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel(title))
@@ -18,10 +19,12 @@ class NumberDialog(QDialog):
                 continue
             amount = int(preset["amount"])
             button = QPushButton(format_money(amount))
+            button.setMinimumHeight(64)
             button.clicked.connect(lambda _=False, value=amount: self._preset(value))
             preset_grid.addWidget(button, index // 3, index % 3)
         layout.addLayout(preset_grid)
         other = QPushButton("BOSHQA NARX")
+        other.setMinimumHeight(64)
         other.clicked.connect(lambda: self._press("C"))
         layout.addWidget(other)
         self.display = QLabel()
@@ -30,14 +33,18 @@ class NumberDialog(QDialog):
         grid = QGridLayout()
         for index, text in enumerate(("1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "0", "⌫")):
             button = QPushButton(text)
-            button.setMinimumHeight(56)
+            button.setMinimumHeight(68)
             button.clicked.connect(lambda _=False, value=text: self._press(value))
             grid.addWidget(button, index // 3, index % 3)
         layout.addLayout(grid)
         actions = QHBoxLayout()
         cancel = QPushButton("BEKOR")
+        cancel.setMinimumHeight(64)
         cancel.clicked.connect(self.reject)
+
         self.confirm = QPushButton("TASDIQLASH")
+        self.confirm.setMinimumHeight(64)
+        self.confirm.setProperty("primary", True)
         self.confirm.clicked.connect(self.accept)
         actions.addWidget(cancel)
         actions.addWidget(self.confirm)

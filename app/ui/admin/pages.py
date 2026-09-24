@@ -40,7 +40,7 @@ class ResourcePage(QWidget):
                 ('categories', 'GURUHLAR'),
             ]:
                 button = QPushButton(title)
-                button.setMinimumHeight(52)
+                button.setMinimumHeight(60)
                 button.setCheckable(True)
                 button.setChecked(resource == key)
                 button.clicked.connect(
@@ -269,7 +269,7 @@ class ResourcePage(QWidget):
             row.setSizeHint(
                 QSize(
                     0,
-                    108 if self.resource == 'products' else 74,
+                    124 if self.resource == 'products' else 88,
                 )
             )
             if self.resource == 'products':
@@ -500,7 +500,7 @@ class Dashboard(QWidget):
         top.addStretch()
 
         refresh = QPushButton("↻ YANGILASH")
-        refresh.setMinimumHeight(52)
+        refresh.setMinimumHeight(64)
         refresh.setMinimumWidth(150)
         refresh.clicked.connect(self.load)
         top.addWidget(refresh)
@@ -559,7 +559,7 @@ class Dashboard(QWidget):
         self.catalog = QListWidget()
         self.catalog.setObjectName("dashboardCatalog")
         self.catalog.setWordWrap(True)
-        self.catalog.setSpacing(3)
+        self.catalog.setSpacing(6)
         self.catalog.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )

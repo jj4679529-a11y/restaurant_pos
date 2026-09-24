@@ -1,8 +1,10 @@
+from pathlib import Path
 from collections.abc import Callable
 from typing import Any
 from decimal import Decimal
 
 from PySide6.QtCore import QTimer, Qt
+from PySide6.QtGui import QBrush, QPalette, QPixmap
 from PySide6.QtWidgets import QScroller
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -66,8 +68,56 @@ class PosMainWindow(QMainWindow):
         QTimer.singleShot(0, self.reload_catalog_async)
         self._apply_layout_geometry()
 
+    def _apply_cashier_background(self) -> None:
+        background_path = (
+            Path(__file__).resolve().parent
+            / "assets"
+            / "cashier_background.png"
+        )
+
+        if not background_path.exists():
+            return
+
+        pixmap = QPixmap(str(background_path))
+        if pixmap.isNull():
+            return
+
+        self._cashier_background_pixmap = pixmap
+        self._refresh_cashier_background()
+
+    def _refresh_cashier_background(self) -> None:
+        pixmap = getattr(
+            self,
+            "_cashier_background_pixmap",
+            None,
+        )
+
+        if pixmap is None or pixmap.isNull():
+            return
+
+        scaled = pixmap.scaled(
+            self.size(),
+            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+
+        palette = self.palette()
+        palette.setBrush(
+            QPalette.ColorRole.Window,
+            QBrush(scaled),
+        )
+
+        self.setPalette(palette)
+        self.setAutoFillBackground(True)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._refresh_cashier_background()
+
     def _build(self) -> None:
         root = QWidget()
+        root.setObjectName("cashierRoot")
+        root.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         root_layout = QVBoxLayout(root)
         root_layout.setContentsMargins(12, 10, 12, 10)
         root_layout.setSpacing(9)
@@ -78,14 +128,14 @@ class PosMainWindow(QMainWindow):
         controls.setSpacing(8)
 
         self.fresh_order_button = QPushButton("YANGI BUYURTMA")
-        self.fresh_order_button.setMinimumHeight(44)
+        self.fresh_order_button.setMinimumHeight(58)
         self.fresh_order_button.setCheckable(True)
         self.fresh_order_button.setProperty("role", "cashier-tab")
         self.fresh_order_button.setChecked(True)
         self.fresh_order_button.clicked.connect(self._new_order)
 
         self.saved_orders_button = QPushButton("SAQLANGANLAR")
-        self.saved_orders_button.setMinimumHeight(44)
+        self.saved_orders_button.setMinimumHeight(58)
         self.saved_orders_button.setProperty("role", "cashier-tab")
         self.saved_orders_button.clicked.connect(self._saved_orders)
 
@@ -257,7 +307,7 @@ class PosMainWindow(QMainWindow):
         self.new_order_button = QPushButton(
             "YANGI BUYURTMA"
         )
-        self.new_order_button.setMinimumHeight(44)
+        self.new_order_button.setMinimumHeight(58)
         self.new_order_button.clicked.connect(
             self._reset_after_payment
         )
@@ -516,7 +566,11 @@ class PosMainWindow(QMainWindow):
             self.delivery_worker_buttons.append(button)
             self.delivery_worker_layout.addWidget(button)
 
-        self.delivery_worker_layout.addStretch()
+        # QGridLayout has no addStretch(); keep free space at the bottom.
+        self.delivery_worker_layout.setRowStretch(
+            self.delivery_worker_layout.rowCount(),
+            1,
+        )
 
     def _delivery_combo_changed(self, _index: int) -> None:
         worker_id = self.delivery_worker_combo.currentData()

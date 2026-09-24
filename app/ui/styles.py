@@ -512,4 +512,593 @@ QScrollArea {
     border: none;
 }
 
+
+
+/* ==========================================================
+   TABLET-FIRST POS
+   ========================================================== */
+
+QMainWindow {
+    background: transparent;
+}
+
+QWidget#cashierRoot {
+    background: transparent;
+}
+
+/* Main cashier surfaces over photo */
+QWidget#cashierRoot QWidget#panel,
+QWidget#cashierRoot QWidget#summaryCard {
+    background: rgba(255, 251, 241, 238);
+    border: 1px solid rgba(206, 172, 91, 190);
+    border-radius: 18px;
+}
+
+QWidget#cashierRoot QScrollArea,
+QWidget#cashierRoot QScrollArea > QWidget > QWidget {
+    background: rgba(255, 251, 241, 226);
+}
+
+QWidget#cashierRoot QListWidget {
+    background: rgba(255, 251, 241, 240);
+}
+
+/* Buttons must work by touch, hover is not required */
+QPushButton {
+    min-height: 56px;
+    min-width: 56px;
+    padding: 6px 16px;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+QPushButton:hover {
+    /* Touch screens have no useful hover state */
+    border-color: #d6e2d3;
+}
+
+QPushButton:pressed {
+    background: #d6a83c;
+    color: #12382d;
+    border-color: #c49327;
+}
+
+QPushButton:checked,
+QPushButton[primary="true"],
+QPushButton[role="primary"],
+QPushButton[role="success"] {
+    background: #0b4638;
+    color: #fff9ef;
+    border: 2px solid #d6a83c;
+}
+
+/* Main navigation/category */
+QPushButton[role="category"] {
+    min-height: 58px;
+    font-size: 17px;
+    font-weight: 800;
+    padding-left: 18px;
+}
+
+QPushButton[role="admin-navigation"] {
+    min-height: 60px;
+    font-size: 17px;
+    font-weight: 750;
+    padding: 8px 14px;
+}
+
+/* Touch-friendly inputs */
+QLineEdit,
+QComboBox,
+QSpinBox,
+QDoubleSpinBox,
+QDateEdit {
+    min-height: 54px;
+    font-size: 18px;
+    padding: 5px 12px;
+}
+
+QComboBox::drop-down {
+    width: 54px;
+}
+
+QComboBox::down-arrow {
+    width: 18px;
+    height: 18px;
+}
+
+/* Lists */
+QListWidget {
+    font-size: 18px;
+}
+
+QListWidget::item {
+    min-height: 54px;
+    padding: 8px 10px;
+}
+
+/* Scrollbars must be finger friendly */
+QScrollBar:vertical {
+    width: 22px;
+    background: rgba(245, 240, 226, 190);
+    margin: 2px;
+    border-radius: 10px;
+}
+
+QScrollBar::handle:vertical {
+    background: #557d69;
+    min-height: 64px;
+    border-radius: 10px;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QScrollBar:horizontal {
+    height: 22px;
+    background: rgba(245, 240, 226, 190);
+    margin: 2px;
+    border-radius: 10px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #557d69;
+    min-width: 64px;
+    border-radius: 10px;
+}
+
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal {
+    width: 0px;
+}
+
+/* Splitter should not need precise mouse movement */
+QSplitter::handle {
+    background: rgba(214, 168, 60, 150);
+}
+
+QSplitter::handle:horizontal {
+    width: 8px;
+}
+
+QSplitter::handle:vertical {
+    height: 8px;
+}
+
+/* Product cards */
+QToolButton#productCard {
+    min-height: 190px;
+    font-size: 17px;
+    font-weight: 800;
+    background: rgba(255, 251, 241, 244);
+    border: 2px solid rgba(214, 168, 60, 170);
+}
+
+QToolButton#productCard:hover {
+    background: rgba(255, 251, 241, 244);
+    border: 2px solid rgba(214, 168, 60, 170);
+}
+
+QToolButton#productCard:pressed {
+    background: #ead9ad;
+    border: 2px solid #0b4638;
+}
+
+/* Dialogs */
+QDialog {
+    background: #f8f2e6;
+}
+
+QLabel#dialogTitle {
+    font-size: 30px;
+    font-weight: 900;
+    color: #0b4638;
+}
+
+QLabel#sectionTitle {
+    font-size: 22px;
+    font-weight: 850;
+    color: #0b4638;
+}
+
+/* Cart */
+QLabel#totalLabel {
+    font-size: 34px;
+    font-weight: 900;
+    color: #0b4638;
+}
+
+/* Admin panels */
+QWidget#adminSidebar {
+    background: #073d32;
+}
+
+QWidget#adminSidebar QLabel {
+    color: #fff9ef;
+}
+
+QWidget#adminSidebar QPushButton {
+    background: #0b4638;
+    color: #fff9ef;
+    border: 1px solid #bd9133;
+}
+
+QWidget#adminSidebar QPushButton:checked,
+QWidget#adminSidebar QPushButton:pressed {
+    background: #d6a83c;
+    color: #153a2f;
+}
+
+/* Tables */
+QTableWidget,
+QTableView {
+    font-size: 17px;
+    gridline-color: #ded7c8;
+}
+
+QHeaderView::section {
+    min-height: 48px;
+    font-size: 17px;
+    font-weight: 800;
+    padding: 8px;
+}
+
+
+
+
+/* ==========================================================
+   TABLET PHASE 2
+   ========================================================== */
+
+QLabel#savedOrdersTitle {
+    font-size: 30px;
+    font-weight: 900;
+    color: #0B4638;
+    padding: 6px 4px 12px 4px;
+}
+
+QLabel#quantityValue {
+    background: #0B4638;
+    color: #FFF9EF;
+    border: 2px solid #D6A83C;
+    border-radius: 14px;
+    font-size: 30px;
+    font-weight: 900;
+    padding: 6px 14px;
+}
+
+QPlainTextEdit#touchDetails {
+    font-size: 18px;
+    line-height: 1.25;
+    background: #FFF9EF;
+    border: 1px solid #D8C598;
+    border-radius: 12px;
+    padding: 10px;
+}
+
+/* Finger-sized checkbox */
+QCheckBox {
+    min-height: 52px;
+    spacing: 12px;
+    font-size: 17px;
+}
+
+QCheckBox::indicator {
+    width: 30px;
+    height: 30px;
+}
+
+/* Radio buttons if any are added later */
+QRadioButton {
+    min-height: 52px;
+    spacing: 12px;
+    font-size: 17px;
+}
+
+QRadioButton::indicator {
+    width: 30px;
+    height: 30px;
+}
+
+/* Calendar popup */
+QCalendarWidget QToolButton {
+    min-height: 48px;
+    min-width: 48px;
+    font-size: 17px;
+}
+
+QCalendarWidget QAbstractItemView {
+    font-size: 18px;
+    selection-background-color: #0B4638;
+    selection-color: #FFF9EF;
+}
+
+QCalendarWidget QSpinBox {
+    min-height: 48px;
+}
+
+/* Tabs must not be tiny */
+QTabBar::tab {
+    min-height: 52px;
+    min-width: 130px;
+    padding: 6px 16px;
+    font-size: 17px;
+    font-weight: 750;
+}
+
+/* Menu popup / Combo popup */
+QComboBox QAbstractItemView {
+    min-height: 56px;
+    font-size: 18px;
+    padding: 4px;
+}
+
+QComboBox QAbstractItemView::item {
+    min-height: 52px;
+}
+
+/* Readable status/details */
+QPlainTextEdit,
+QTextEdit,
+QTextBrowser {
+    font-size: 17px;
+}
+
+/* Prevent tiny toolbuttons inside widgets */
+QToolButton {
+    min-width: 52px;
+    min-height: 52px;
+}
+
+/* ========================================================== */
+
+
+
+/* ==========================================================
+   TABLET PHASE 3 — ADMIN
+   ========================================================== */
+
+QWidget#adminSidebar {
+    background: #073D32;
+}
+
+QWidget#adminSidebar QPushButton {
+    min-height: 62px;
+    font-size: 17px;
+    font-weight: 800;
+    text-align: left;
+    padding-left: 18px;
+}
+
+QWidget#adminSidebar QPushButton:checked {
+    background: #D6A83C;
+    color: #12382D;
+    border: 2px solid #F0D486;
+}
+
+/* Admin records/lists */
+QListWidget#dashboardCatalog::item,
+QListWidget::item {
+    min-height: 60px;
+    padding: 10px 12px;
+}
+
+/* Large editable fields */
+QWidget#adminFormPanel QLineEdit,
+QWidget#adminFormPanel QComboBox,
+QWidget#adminFormPanel QSpinBox {
+    min-height: 60px;
+    font-size: 18px;
+}
+
+/* Make spin controls finger-sized */
+QSpinBox::up-button,
+QDoubleSpinBox::up-button {
+    width: 42px;
+    height: 28px;
+}
+
+QSpinBox::down-button,
+QDoubleSpinBox::down-button {
+    width: 42px;
+    height: 28px;
+}
+
+/* Admin form labels */
+QWidget#adminFormPanel QLabel {
+    font-size: 17px;
+    font-weight: 650;
+}
+
+/* Preset cards */
+QWidget#pricePresetCard {
+    background: #FFF9EF;
+    border: 1px solid #D8C598;
+    border-radius: 12px;
+    min-height: 76px;
+}
+
+QLabel#pricePresetValue {
+    font-size: 21px;
+    font-weight: 850;
+    color: #0B4638;
+}
+
+/* Tables, should any admin page use them */
+QTableView::item,
+QTableWidget::item {
+    padding: 9px;
+}
+
+QTableView QScrollBar:vertical,
+QTableWidget QScrollBar:vertical {
+    width: 24px;
+}
+
+/* Dialog confirmation buttons also finger friendly */
+QMessageBox QPushButton {
+    min-width: 120px;
+    min-height: 58px;
+    font-size: 17px;
+}
+
+/* ========================================================== */
+
+
+
+/* ==========================================================
+   TABLET PHASE 4 — RESOURCE / IMAGE
+   ========================================================== */
+
+QListWidget#adminResourceList::item {
+    min-height: 88px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #DDD3BF;
+}
+
+QListWidget#adminResourceList::item:selected {
+    background: #D6A83C;
+    color: #12382D;
+    border: 2px solid #0B4638;
+}
+
+QLabel#adminImagePreview {
+    background: #EEE6D5;
+    border: 2px solid #D6A83C;
+    border-radius: 16px;
+    padding: 6px;
+}
+
+/* Strong selected state for touch */
+QListWidget::item:selected {
+    background: #D8B451;
+    color: #102F27;
+    border: 2px solid #0B4638;
+}
+
+/* Big buttons in admin dialogs */
+QDialog QPushButton {
+    min-height: 58px;
+}
+
+/* Finger-friendly file/image action buttons */
+QWidget#adminFormPanel QPushButton {
+    min-height: 60px;
+    font-size: 17px;
+    font-weight: 750;
+}
+
+/* ========================================================== */
+
+
+
+/* ==========================================================
+   TABLET PHASE 5 — MENU WIZARD / PORTIONS
+   ========================================================== */
+
+QLabel#wizardImagePreview {
+    background: #EEE6D5;
+    border: 2px solid #D6A83C;
+    border-radius: 16px;
+    padding: 6px;
+    font-size: 17px;
+    font-weight: 700;
+    color: #5D675F;
+}
+
+QListWidget#portionsList::item {
+    min-height: 76px;
+    padding: 10px 14px;
+    font-size: 18px;
+    font-weight: 700;
+    border-bottom: 1px solid #DDD3BF;
+}
+
+QListWidget#portionsList::item:selected {
+    background: #D6A83C;
+    color: #12382D;
+    border: 2px solid #0B4638;
+}
+
+/* Wizard input controls */
+QDialog QLineEdit,
+QDialog QComboBox,
+QDialog QSpinBox {
+    min-height: 60px;
+}
+
+/* Wizard buttons */
+QDialog QPushButton {
+    min-height: 60px;
+    font-size: 17px;
+    font-weight: 750;
+}
+
+/* Make keypad/price buttons very easy to tap */
+QPushButton[text="NARX"] {
+    min-width: 100px;
+}
+
+/* ========================================================== */
+
+
+
+/* ==========================================================
+   CLEAN RECEIPT — CURRENT ORDER
+   ========================================================== */
+
+QWidget[role="order-card"] {
+    background: #FFFDF7;
+    border: 1px solid #D8CFBA;
+    border-radius: 10px;
+}
+
+QListWidget#receiptList {
+    background: #FFFDF7;
+    border: none;
+    outline: none;
+    padding: 4px 2px;
+}
+
+QListWidget#receiptList::item {
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+}
+
+QWidget#receiptCard {
+    background: #FFFDF7;
+    border: none;
+    border-bottom: 1px solid #D9D1C2;
+    border-radius: 0;
+}
+
+QLabel#receiptTitle {
+    color: #1C2723;
+    font-size: 17px;
+    font-weight: 800;
+}
+
+QLabel#receiptSecondary {
+    color: #505952;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+QLabel#totalLabel {
+    background: #FFFDF7;
+    color: #073D32;
+    border: none;
+    border-top: 2px solid #073D32;
+    border-radius: 0;
+    padding: 14px 8px 8px 8px;
+    font-size: 25px;
+    font-weight: 900;
+}
+
+/* ========================================================== */
+
 """

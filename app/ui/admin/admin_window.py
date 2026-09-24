@@ -41,7 +41,7 @@ class AdminWindow(QMainWindow):
 
         nav_panel = QWidget()
         nav_panel.setObjectName("adminSidebar")
-        nav_panel.setFixedWidth(260)
+        nav_panel.setFixedWidth(275)
 
         nav = QVBoxLayout(nav_panel)
         nav.setContentsMargins(18, 22, 18, 18)
@@ -60,7 +60,7 @@ class AdminWindow(QMainWindow):
         admin_label.setObjectName("adminUser")
         admin_label.setWordWrap(True)
         admin_label.setStyleSheet(
-            "font-size: 13px; padding: 0 4px 14px 4px;"
+            "font-size: 15px; font-weight: 600; padding: 0 4px 14px 4px;"
         )
         nav.addWidget(admin_label)
         self.stack = QStackedWidget()
@@ -84,7 +84,7 @@ class AdminWindow(QMainWindow):
             }[key]
 
             button = QPushButton(label)
-            button.setMinimumHeight(56)
+            button.setMinimumHeight(62)
             button.setMinimumWidth(210)
             button.setCheckable(True)
             button.setProperty('role', 'admin-navigation')
@@ -93,13 +93,13 @@ class AdminWindow(QMainWindow):
             nav.addWidget(button)
         nav.addStretch()
         back = QPushButton('← KASSAGA QAYTISH')
-        back.setMinimumHeight(54)
+        back.setMinimumHeight(62)
         back.setObjectName("adminBack")
         back.clicked.connect(self.logout)
         nav.addWidget(back)
 
         logout = QPushButton('CHIQISH')
-        logout.setMinimumHeight(54)
+        logout.setMinimumHeight(62)
         logout.setObjectName("adminLogout")
         logout.clicked.connect(self.logout)
         nav.addWidget(logout)

@@ -64,12 +64,12 @@ class QuickPricesDialog(QDialog):
 
         self.add_button = QPushButton("＋ NARX QO‘SHISH · 4 TAGACHA")
         self.add_button.setProperty("primary", True)
-        self.add_button.setMinimumHeight(56)
+        self.add_button.setMinimumHeight(64)
         self.add_button.clicked.connect(lambda: self.edit())
         layout.addWidget(self.add_button)
 
         close = QPushButton("YOPISH")
-        close.setMinimumHeight(56)
+        close.setMinimumHeight(64)
         close.clicked.connect(self.accept)
         layout.addWidget(close)
 
@@ -131,7 +131,7 @@ class QuickPricesDialog(QDialog):
             line.addWidget(label, 1)
 
             edit = QPushButton("Tahrirlash")
-            edit.setMinimumHeight(52)
+            edit.setMinimumHeight(60)
             edit.clicked.connect(
                 lambda _=False, current=record: self.edit(current)
             )
@@ -142,7 +142,7 @@ class QuickPricesDialog(QDialog):
                 if record.get("is_active", True)
                 else "Faollashtirish"
             )
-            toggle.setMinimumHeight(52)
+            toggle.setMinimumHeight(60)
             toggle.clicked.connect(
                 lambda _=False, current=record: self.toggle(current)
             )

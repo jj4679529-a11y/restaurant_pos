@@ -2,7 +2,7 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QListWidget, QListWidgetItem, QPlainTextEdit, QButtonGroup, QScroller, QInputDialog, QMessageBox
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QListWidget, QListWidgetItem, QPlainTextEdit, QButtonGroup, QScroller, QInputDialog, QMessageBox, QLineEdit
 
 from app.ui.api_client import ApiAuthenticationError
 from app.ui.checkout import pay_and_print, print_paid_order
@@ -48,20 +48,29 @@ class OrderDetailDialog(QDialog):
         layout = QVBoxLayout(self)
         self.details = QPlainTextEdit()
         self.details.setReadOnly(True)
+        self.details.setObjectName("touchDetails")
+
+        QScroller.grabGesture(
+            self.details.viewport(),
+            QScroller.ScrollerGestureType.TouchGesture,
+        )
+
         layout.addWidget(self.details)
         self.status = QLabel()
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
         self.action = QPushButton()
+        self.action.setMinimumHeight(64)
         self.action.clicked.connect(self.checkout)
         layout.addWidget(self.action)
 
         self.cancel_button = QPushButton('BUYURTMANI BEKOR QILISH')
-        self.cancel_button.setMinimumHeight(52)
+        self.cancel_button.setMinimumHeight(64)
         self.cancel_button.clicked.connect(self.cancel_order)
         layout.addWidget(self.cancel_button)
 
         back = QPushButton('ORQAGA / YANGI BUYURTMAGA QAYTISH')
+        back.setMinimumHeight(64)
         back.clicked.connect(self.accept)
         layout.addWidget(back)
         self.refresh()
@@ -218,11 +227,20 @@ class SavedOrdersDialog(QDialog):
         self.setWindowTitle('SAQLANGAN BUYURTMALAR')
         self.resize(950, 650)
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(18, 16, 18, 16)
+        layout.setSpacing(12)
+
+        title = QLabel("SAQLANGAN BUYURTMALAR")
+        title.setObjectName("savedOrdersTitle")
+        layout.addWidget(title)
+
         filters = QHBoxLayout()
+        filters.setSpacing(10)
         group = QButtonGroup(self)
         for status in (None, 'PENDING', 'PAID', 'CANCELLED'):
             button = QPushButton(status or 'BARCHASI')
             button.setCheckable(True)
+            button.setMinimumHeight(60)
             button.setChecked(status is None)
             group.addButton(button)
             button.clicked.connect(lambda _=False, value=status: self.filter(value))
@@ -248,6 +266,7 @@ class SavedOrdersDialog(QDialog):
         back = QPushButton('YANGI BUYURTMAGA QAYTISH')
         back.clicked.connect(self.accept)
         for button in (self.previous, self.next, back):
+            button.setMinimumHeight(62)
             actions.addWidget(button)
         layout.addLayout(actions)
         self.reload()

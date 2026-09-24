@@ -96,7 +96,7 @@ class Editor(QDialog):
     def __init__(self, title, fields, values, save, on_error, parent=None):
         super().__init__(parent)
         self.setWindowTitle(title)
-        self.resize(760, 680)
+        self.resize(820, 680)
 
         self.save_callback = save
         self.on_error = on_error
@@ -122,7 +122,7 @@ class Editor(QDialog):
         self.form.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow
         )
-        self.form.setSpacing(18)
+        self.form.setSpacing(22)
         self.form.setContentsMargins(18, 18, 18, 18)
         self.form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
 
@@ -132,7 +132,7 @@ class Editor(QDialog):
 
             if isinstance(kind, list):
                 widget = QComboBox()
-                widget.setMinimumHeight(52)
+                widget.setMinimumHeight(60)
                 for name, data in kind:
                     widget.addItem(name, data)
                 index = widget.findData(value)
@@ -142,7 +142,7 @@ class Editor(QDialog):
             elif kind == "bool":
                 widget = QCheckBox("Sotuvda")
                 widget.setChecked(bool(value if value is not None else True))
-                widget.setMinimumHeight(52)
+                widget.setMinimumHeight(60)
 
             elif kind in {"money", "int"}:
                 widget = QSpinBox()
@@ -151,13 +151,13 @@ class Editor(QDialog):
                     2_147_483_647,
                 )
                 widget.setValue(int(value or 0))
-                widget.setMinimumHeight(52)
+                widget.setMinimumHeight(60)
                 if kind == "money":
                     widget.setSuffix(" so‘m")
 
             else:
                 widget = QLineEdit(str(value or ""))
-                widget.setMinimumHeight(52)
+                widget.setMinimumHeight(60)
                 if kind == "password":
                     widget.setEchoMode(QLineEdit.EchoMode.Password)
                     widget.setPlaceholderText(
@@ -174,7 +174,7 @@ class Editor(QDialog):
                 row.addWidget(widget, 1)
 
                 keypad = QPushButton("NARXNI KIRITISH")
-                keypad.setMinimumHeight(52)
+                keypad.setMinimumHeight(60)
                 keypad.clicked.connect(
                     lambda _=False, field=widget: self.money_keypad(field)
                 )
@@ -189,12 +189,12 @@ class Editor(QDialog):
         buttons = QHBoxLayout()
 
         cancel = QPushButton("BEKOR QILISH")
-        cancel.setMinimumHeight(58)
+        cancel.setMinimumHeight(64)
         cancel.clicked.connect(self.reject)
 
         self.save_button = QPushButton("✓ SAQLASH")
         self.save_button.setProperty("primary", True)
-        self.save_button.setMinimumHeight(58)
+        self.save_button.setMinimumHeight(64)
         self.save_button.clicked.connect(self.save)
 
         buttons.addWidget(cancel)
@@ -524,6 +524,12 @@ class RecordEditor(Editor):
             )
 
             self.preview = QLabel()
+            self.preview.setObjectName("adminImagePreview")
+            self.preview.setAlignment(
+                Qt.AlignmentFlag.AlignCenter
+            )
+            self.preview.setMinimumSize(360, 220)
+            self.preview.setMaximumHeight(260)
             self.form.addRow(self.preview)
             self.image_preview()
 
@@ -540,7 +546,7 @@ class RecordEditor(Editor):
                 ),
             ]:
                 button = QPushButton(label)
-                button.setMinimumHeight(52)
+                button.setMinimumHeight(64)
                 button.clicked.connect(handler)
                 actions.addWidget(button)
 
@@ -832,9 +838,16 @@ class RecordEditor(Editor):
 
     def image_preview(self):
         reference = self.widgets["image_path"].text()
+        pixmap = product_pixmap(
+            self.client.load_image(reference)
+        )
+
         self.preview.setPixmap(
-            product_pixmap(
-                self.client.load_image(reference)
+            pixmap.scaled(
+                340,
+                210,
+                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                Qt.TransformationMode.SmoothTransformation,
             )
         )
 

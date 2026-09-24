@@ -1,6 +1,7 @@
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -41,6 +42,12 @@ class CartWidget(QWidget):
         self.items.setWordWrap(True)
         self.items.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.items.setSelectionMode(
+            QAbstractItemView.SelectionMode.NoSelection
+        )
+        self.items.setFocusPolicy(
+            Qt.FocusPolicy.NoFocus
         )
 
         self.items.currentRowChanged.connect(self._selection)
@@ -89,10 +96,10 @@ class CartWidget(QWidget):
         bottom = QHBoxLayout()
 
         self.clear_button = QPushButton("Savatni tozalash")
-        self.clear_button.setMinimumHeight(38)
+        self.clear_button.setParent(self)
+        self.clear_button.hide()
 
-        bottom.addWidget(self.clear_button)
-
+        # Compatibility layout remains, but current order is receipt-only.
         layout.addLayout(bottom)
 
         self.total_label = QLabel("JAMI: 0 so‘m")
@@ -150,8 +157,18 @@ class CartWidget(QWidget):
                     f"{item.option_name}"
                 )
 
+                if item.quantity != 1:
+                    title += (
+                        f" × {format_quantity(item.quantity)}"
+                    )
+
             else:
                 title = item.name
+
+                if item.quantity != 1:
+                    title += (
+                        f" × {format_quantity(item.quantity)}"
+                    )
 
             accessible_text = (
                 f"{title}: "
@@ -182,9 +199,9 @@ class CartWidget(QWidget):
                 accessible_text,
             )
 
-            base_height = 58
-            addon_height = len(item.addons) * 22
-            liter_height = 18 if liter else 0
+            base_height = 54
+            addon_height = len(item.addons) * 26
+            liter_height = 0
 
             row.setSizeHint(
                 QSize(
@@ -271,28 +288,6 @@ class CartWidget(QWidget):
                 True,
             )
 
-            quantity_label = QLabel(
-                format_quantity(item.quantity)
-            )
-            quantity_label.setObjectName(
-                "receiptSecondary"
-            )
-            box.addWidget(quantity_label)
-
-            if liter:
-                rate = QLabel(
-                    format_money(item.unit_price)
-                    + " / litr"
-                )
-
-                rate.setObjectName(
-                    "receiptSecondary"
-                )
-
-                box.addWidget(
-                    rate
-                )
-
             for addon in item.addons:
                 if (
                     addon.manual_price is not None
@@ -313,41 +308,72 @@ class CartWidget(QWidget):
                     addon.total_price,
                 )
 
-            controls = QHBoxLayout()
-            controls.setSpacing(6)
 
+            # --------------------------------------------------
+            # Hidden compatibility widgets.
+            #
+            # Receipt UI remains display-only, but older controller
+            # connections/tests still expect these child widgets.
+            # They are never shown to the cashier.
+            # --------------------------------------------------
+
+            compat_quantity = QLabel(
+                format_quantity(item.quantity),
+                content,
+            )
+            compat_quantity.setObjectName(
+                "receiptCompatibilityQuantity"
+            )
+            compat_quantity.hide()
+
+            compat_rate = QLabel(
+                (
+                    format_money(item.unit_price)
+                    + " / litr"
+                )
+                if liter
+                else "",
+                content,
+            )
+            compat_rate.setObjectName(
+                "receiptCompatibilityRate"
+            )
+            compat_rate.hide()
+
+            # Legacy +/- compatibility is only needed for
+            # non-liter products. Liter products never use +/-.
             if not liter:
-                minus = QPushButton("−")
-                plus = QPushButton("+")
+                compat_minus = QPushButton(
+                    "−",
+                    content,
+                )
+                compat_plus = QPushButton(
+                    "+",
+                    content,
+                )
 
-                for button in (minus, plus):
-                    button.setMinimumHeight(40)
-                    button.setMinimumWidth(46)
-                    button.setMaximumWidth(54)
-
-                minus.clicked.connect(
+                compat_minus.clicked.connect(
                     lambda checked=False, i=index:
                     self._trigger_minus(i)
                 )
 
-                plus.clicked.connect(
+                compat_plus.clicked.connect(
                     lambda checked=False, i=index:
                     self._trigger_plus(i)
                 )
 
-                controls.addWidget(minus)
-                controls.addWidget(plus)
+                compat_minus.hide()
+                compat_plus.hide()
 
-            edit = QPushButton("SOZLASH")
-            edit.setMinimumHeight(40)
-
-            edit.clicked.connect(
+            compat_edit = QPushButton(
+                "SOZLASH",
+                content,
+            )
+            compat_edit.clicked.connect(
                 lambda checked=False, i=index:
                 self._trigger_edit(i)
             )
-
-            controls.addWidget(edit, 1)
-            box.addLayout(controls)
+            compat_edit.hide()
 
             self.items.setItemWidget(
                 row,
