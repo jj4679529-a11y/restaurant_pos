@@ -1144,4 +1144,153 @@ QWidget#cashierRoot QToolButton#productCard:hover {
 
 /* ========================================================== */
 
+
+
+/* ==========================================================
+   CASHIER COMPACT LAYOUT
+   ========================================================== */
+
+/* Top header */
+QLabel#cashierBrand {
+    font-size: 17px;
+    font-weight: 850;
+    padding: 0px 2px;
+}
+
+QLabel#connectionStatus {
+    font-size: 12px;
+}
+
+QPushButton#topCompactButton {
+    min-height: 38px;
+    max-height: 40px;
+    min-width: 72px;
+    padding: 2px 10px;
+    font-size: 13px;
+    border-radius: 8px;
+}
+
+/* Order type row */
+QLabel#orderTypeLabel {
+    font-size: 14px;
+    font-weight: 750;
+    color: #355447;
+}
+
+QPushButton[role="order-type"] {
+    min-height: 40px;
+    max-height: 42px;
+    padding: 2px 12px;
+    font-size: 14px;
+}
+
+/* Categories */
+QPushButton[role="category"] {
+    min-height: 48px;
+    max-height: 54px;
+    padding: 3px 10px;
+    padding-left: 12px;
+    font-size: 16px;
+    font-weight: 750;
+}
+
+/* Menu panel heading */
+QLabel#sectionTitle {
+    font-size: 18px;
+    padding: 2px 0px;
+}
+
+/* Current order header */
+QLabel#currentOrderTitle {
+    color: #0B4638;
+    font-size: 17px;
+    font-weight: 850;
+    padding: 2px 0px;
+}
+
+QPushButton#cartClearButton {
+    background: #FFF9EF;
+    color: #7B332E;
+    border: 1px solid #D9B7AA;
+    border-radius: 7px;
+    min-height: 34px;
+    max-height: 36px;
+    min-width: 82px;
+    max-width: 100px;
+    padding: 1px 8px;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+QPushButton#cartClearButton:pressed {
+    background: #E8D0C7;
+    color: #652A26;
+    border-color: #B98272;
+}
+
+/* Receipt gets maximum vertical room */
+QListWidget#receiptList {
+    padding: 2px;
+}
+
+QWidget#receiptCard {
+    padding: 1px;
+}
+
+QLabel#receiptTitle {
+    font-size: 15px;
+    font-weight: 800;
+}
+
+QLabel#receiptSecondary {
+    font-size: 13px;
+}
+
+/* Total compact but strong */
+QLabel#totalLabel {
+    min-height: 40px;
+    max-height: 48px;
+    font-size: 22px;
+    font-weight: 900;
+    padding: 5px 6px;
+}
+
+/* Checkout actions are compact */
+QPushButton#saveOrderButton,
+QPushButton#checkoutButton,
+QPushButton#newOrderButton {
+    min-height: 40px;
+    max-height: 44px;
+    padding: 2px 10px;
+    font-size: 14px;
+    font-weight: 850;
+}
+
+/* ========================================================== */
+
+
+
+/* ==========================================================
+   COMPACT DELIVERY WORKER
+   ========================================================== */
+
+QPushButton#deliveryWorkerSummary {
+    min-height: 38px;
+    max-height: 42px;
+    padding: 2px 12px;
+    background: #EDF4EF;
+    color: #0B4638;
+    border: 1px solid #9FB9AA;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+QPushButton#deliveryWorkerSummary:pressed {
+    background: #DCE9E1;
+    border-color: #557D69;
+}
+
+/* ========================================================== */
+
 """

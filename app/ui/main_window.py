@@ -176,6 +176,21 @@ class PosMainWindow(QMainWindow):
         controls.addSpacing(16)
         controls.addWidget(self.chaykhana_button)
         controls.addWidget(self.delivery_button)
+
+        # After a delivery worker is selected, the large selector collapses
+        # and only this compact button remains visible.
+        self.delivery_worker_summary = QPushButton("")
+        self.delivery_worker_summary.setObjectName(
+            "deliveryWorkerSummary"
+        )
+        self.delivery_worker_summary.setMinimumHeight(40)
+        self.delivery_worker_summary.setMaximumHeight(42)
+        self.delivery_worker_summary.setVisible(False)
+        self.delivery_worker_summary.clicked.connect(
+            self._toggle_delivery_workers
+        )
+
+        controls.addWidget(self.delivery_worker_summary)
         controls.addStretch()
         controls.addWidget(refresh)
 
@@ -282,6 +297,7 @@ class PosMainWindow(QMainWindow):
         self.save_button = QPushButton(
             "BUYURTMANI SAQLASH"
         )
+        self.save_button.setObjectName("saveOrderButton")
         self.save_button.setMinimumHeight(46)
         self.save_button.setProperty(
             "primary",
@@ -294,6 +310,7 @@ class PosMainWindow(QMainWindow):
         self.checkout_button = QPushButton(
             "TO‘LASH VA CHEK CHOP ETISH"
         )
+        self.checkout_button.setObjectName("checkoutButton")
         self.checkout_button.setMinimumHeight(46)
         self.checkout_button.setProperty(
             "primary",
@@ -307,7 +324,9 @@ class PosMainWindow(QMainWindow):
         self.new_order_button = QPushButton(
             "YANGI BUYURTMA"
         )
-        self.new_order_button.setMinimumHeight(58)
+        self.new_order_button.setObjectName("newOrderButton")
+        self.new_order_button.setMinimumHeight(42)
+        self.new_order_button.setMaximumHeight(44)
         self.new_order_button.clicked.connect(
             self._reset_after_payment
         )
@@ -323,9 +342,11 @@ class PosMainWindow(QMainWindow):
         self._sync_actions()
 
     def _apply_layout_geometry(self) -> None:
-        self.cart_widget.setMinimumWidth(340)
-        self.cart_widget.setMaximumWidth(400)
-        self.splitter.setSizes([165, 780, 370])
+        self.cart_widget.setMinimumWidth(380)
+        self.cart_widget.setMaximumWidth(440)
+
+        # ~14% categories / ~56% menu / ~30% current order
+        self.splitter.setSizes([175, 720, 410])
 
     def _top_bar(self) -> QHBoxLayout:
         layout = QHBoxLayout()
@@ -340,10 +361,15 @@ class PosMainWindow(QMainWindow):
         self.clock_label = QLabel()
         self.clock_label.setMinimumWidth(60)
         self.logout_button = QPushButton("CHIQISH")
-        self.logout_button.setMinimumHeight(48)
+        self.logout_button.setObjectName("topCompactButton")
+        self.logout_button.setMinimumHeight(40)
+        self.logout_button.setMaximumHeight(40)
         self.logout_button.clicked.connect(self._logout)
+
         self.admin_button = QPushButton("ADMIN")
-        self.admin_button.setMinimumHeight(48)
+        self.admin_button.setObjectName("topCompactButton")
+        self.admin_button.setMinimumHeight(40)
+        self.admin_button.setMaximumHeight(40)
         self.admin_button.setProperty('role', 'secondary')
         self.admin_button.clicked.connect(lambda: self.on_admin() if self.on_admin else None)
         layout.addWidget(self.admin_button)
@@ -354,13 +380,14 @@ class PosMainWindow(QMainWindow):
 
     def _order_type_bar(self) -> QHBoxLayout:
         layout = QHBoxLayout()
-        label = QLabel("Buyurtma turi:")
-        label.setObjectName("sectionTitle")
+        label = QLabel("Buyurtma:")
+        label.setObjectName("orderTypeLabel")
         self.chaykhana_button = QPushButton("CHOYXONADA")
         self.delivery_button = QPushButton("YETKAZIB BERISH")
         for button in (self.chaykhana_button, self.delivery_button):
             button.setCheckable(True)
-            button.setMinimumHeight(52)
+            button.setMinimumHeight(42)
+            button.setMaximumHeight(42)
         self.chaykhana_button.setChecked(True)
         group = QButtonGroup(self)
         group.addButton(self.chaykhana_button)
@@ -390,9 +417,9 @@ class PosMainWindow(QMainWindow):
         self.category_scroll.setWidget(self.category_content)
         QScroller.grabGesture(self.category_scroll.viewport(), QScroller.ScrollerGestureType.TouchGesture)
         layout.addWidget(self.category_scroll)
-        self.category_scroll.setMinimumWidth(150)
-        panel.setMinimumWidth(150)
-        panel.setMaximumWidth(175)
+        self.category_scroll.setMinimumWidth(145)
+        panel.setMinimumWidth(145)
+        panel.setMaximumWidth(180)
         return panel
 
     def _product_panel(self) -> QWidget:
@@ -551,7 +578,8 @@ class PosMainWindow(QMainWindow):
             worker_id = int(worker["id"])
 
             button = QPushButton(str(worker["name"]).upper())
-            button.setMinimumHeight(52)
+            button.setMinimumHeight(42)
+            button.setMaximumHeight(42)
             button.setCheckable(True)
             button.setProperty("role", "category")
             button.setChecked(
@@ -572,6 +600,46 @@ class PosMainWindow(QMainWindow):
             1,
         )
 
+    def _selected_delivery_worker_name(self) -> str:
+        if self.selected_delivery_worker_id is None:
+            return ""
+
+        for worker in self.workers:
+            if (
+                worker.get("is_active", True)
+                and int(worker["id"])
+                == self.selected_delivery_worker_id
+            ):
+                return str(worker["name"])
+
+        return ""
+
+    def _collapse_delivery_workers(self) -> None:
+        """Hide the large worker selector and show selected worker compactly."""
+        name = self._selected_delivery_worker_name()
+
+        if not name:
+            self.delivery_worker_summary.hide()
+            return
+
+        self.delivery_worker_summary.setText(
+            f"🚚 {name.upper()}  ▾"
+        )
+        self.delivery_worker_summary.show()
+        self.delivery_container.hide()
+
+    def _toggle_delivery_workers(self) -> None:
+        if self._order_type() != "DELIVERY":
+            return
+
+        visible = self.delivery_container.isVisible()
+        self.delivery_container.setVisible(not visible)
+
+        if visible:
+            self.delivery_worker_summary.show()
+        else:
+            self.delivery_worker_summary.hide()
+
     def _delivery_combo_changed(self, _index: int) -> None:
         worker_id = self.delivery_worker_combo.currentData()
         self.selected_delivery_worker_id = (
@@ -580,6 +648,9 @@ class PosMainWindow(QMainWindow):
             else None
         )
         self._render_delivery_workers()
+
+        if self.selected_delivery_worker_id is not None:
+            self._collapse_delivery_workers()
 
     def _select_delivery_worker(self, worker_id: int) -> None:
         self.selected_delivery_worker_id = worker_id
@@ -603,6 +674,9 @@ class PosMainWindow(QMainWindow):
             button.setChecked(
                 int(worker["id"]) == worker_id
             )
+
+        # Selection is complete: return vertical space to menu/order.
+        self._collapse_delivery_workers()
 
     @staticmethod
     def _clear_layout(layout) -> None:
@@ -706,13 +780,26 @@ class PosMainWindow(QMainWindow):
             self.cart_widget.render(self.cart)
 
     def _set_order_type(self, order_type: str) -> None:
-        self.delivery_container.setVisible(
-            order_type == "DELIVERY"
-        )
+        if order_type == "DELIVERY":
+            if self.selected_delivery_worker_id is None:
+                # No worker selected yet: show the picker.
+                self.delivery_worker_summary.hide()
+                self.delivery_container.show()
+            else:
+                # Existing selection: keep UI compact.
+                self._collapse_delivery_workers()
+            return
 
-        if order_type == "CHAYKHANA":
-            self.selected_delivery_worker_id = None
-            self._render_delivery_workers()
+        # CHAYKHANA: delivery UI disappears completely.
+        self.selected_delivery_worker_id = None
+
+        self.delivery_worker_combo.blockSignals(True)
+        self.delivery_worker_combo.setCurrentIndex(0)
+        self.delivery_worker_combo.blockSignals(False)
+
+        self.delivery_container.hide()
+        self.delivery_worker_summary.hide()
+        self._render_delivery_workers()
 
     def _order_type(self) -> str:
         return "DELIVERY" if self.delivery_button.isChecked() else "CHAYKHANA"

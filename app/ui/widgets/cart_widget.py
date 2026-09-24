@@ -26,9 +26,25 @@ class CartWidget(QWidget):
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(6)
 
+        header = QHBoxLayout()
+        header.setSpacing(6)
+
         title = QLabel("JORIY BUYURTMA")
-        title.setObjectName("sectionTitle")
-        layout.addWidget(title)
+        title.setObjectName("currentOrderTitle")
+
+        header.addWidget(title)
+        header.addStretch()
+
+        self.clear_button = QPushButton("TOZALASH")
+        self.clear_button.setObjectName("cartClearButton")
+        self.clear_button.setMinimumHeight(36)
+        self.clear_button.setMaximumHeight(36)
+        self.clear_button.setMinimumWidth(82)
+        self.clear_button.setMaximumWidth(100)
+
+        header.addWidget(self.clear_button)
+
+        layout.addLayout(header)
 
         self.empty = QLabel(
             "Mahsulot tanlang\n"
@@ -92,15 +108,6 @@ class CartWidget(QWidget):
         ):
             button.setParent(self)
             button.hide()
-
-        bottom = QHBoxLayout()
-
-        self.clear_button = QPushButton("Savatni tozalash")
-        self.clear_button.setParent(self)
-        self.clear_button.hide()
-
-        # Compatibility layout remains, but current order is receipt-only.
-        layout.addLayout(bottom)
 
         self.total_label = QLabel("JAMI: 0 so‘m")
         self.total_label.setObjectName("totalLabel")
