@@ -170,6 +170,15 @@ class ResourcePage(QWidget):
     def render(self):
         self.rows.clear()
         for record in self.records:
+            # Admin Menyu shows only active products.
+            # Inactive products remain available through the API for
+            # history/edit/test compatibility, but are hidden from this list.
+            if (
+                self.resource == 'products'
+                and not record.get('is_active', True)
+            ):
+                continue
+
             if self.resource == 'products' and self.category.currentData() is not None and record['category_id'] != self.category.currentData():
                 continue
             active = 'Faol' if record.get('is_active', True) else 'Nofaol'
