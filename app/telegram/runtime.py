@@ -142,10 +142,10 @@ class TelegramRuntime:
                         try:
                             self.cycle()
                         except Exception:
-                            log.warning('Telegram cycle failed; will retry (details suppressed)')
+                            log.exception('Telegram cycle failed')
                         self.stop_event.wait(5)
             except Exception:
-                log.warning('Telegram worker unavailable; will retry (details suppressed)')
+                log.exception('Telegram worker unavailable')
             finally:
                 if connection is not None:
                     try:

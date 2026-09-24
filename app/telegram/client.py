@@ -67,6 +67,12 @@ class TelegramBotClient:
             text = text.encode('utf-16-le')[:7800].decode('utf-16-le', errors='ignore') + '\n… Hisobot qisqartirildi.'
         self._request("sendMessage", {"chat_id": chat_id, "text": text})
 
+    def set_commands(self) -> None:
+        self._request(
+            "setMyCommands",
+            {"commands": BOT_COMMANDS},
+        )
+
     def get_updates(self, offset: int) -> list[dict]:
         payload = self._request("getUpdates", {"offset": offset, "timeout": 0, "limit": 50, "allowed_updates": ["message"]})
         updates = payload.get('result')

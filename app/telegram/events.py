@@ -55,160 +55,56 @@ def current_report(session, now=None):
 def schedule_report(session, report_time, now=None):
     if not report_time:
         return
+
     timezone, boundary = business_clock(session)
     now = (now or datetime.now(timezone)).astimezone(timezone)
-    hour, minute = map(int, report_time.split(':'))
-    # Before 06:00 belongs to the preceding business date. Compute that day's
-    # scheduled wall clock instant, including schedules in the next morning.
-    from datetime import timedelta
-    business_date = get_current_business_date(now, session)
-    scheduled_date = business_date + timedelta(days=1 if (hour, minute) < (boundary.hour, boundary.minute) else 0)
-    due = datetime.combine(scheduled_date, datetime.min.time(), timezone).replace(hour=hour, minute=minute)
-    if now < due:
-        return
-    key = f'scheduled-report:{business_date}'
-    if session.scalar(select(TelegramOutbox.id).where(TelegramOutbox.event_key == key)):
-        return
-    args = args or []
 
-    if command in ('/day', '/kun'):
-        if not args:
-            return (
-                "Format:\n"
-                "/kun 20.09.2026"
-            )
-
-        try:
-            selected_date = datetime.strptime(
-                args[0],
-                "%d.%m.%Y",
-            ).date()
-        except ValueError:
-            return (
-                "❌ Sana formati noto‘g‘ri.\n"
-                "Masalan: /kun 20.09.2026"
-            )
-
-        return period_report_message(
-            session,
-            selected_date,
-            selected_date,
-            "📊 KUNLIK HISOBOT",
-        )
-
-    if command in ('/month', '/oy'):
-        if not args:
-            return (
-                "Format:\n"
-                "/oy 09.2026"
-            )
-
-        try:
-            month_date = datetime.strptime(
-                args[0],
-                "%m.%Y",
-            ).date()
-        except ValueError:
-            return (
-                "❌ Oy formati noto‘g‘ri.\n"
-                "Masalan: /oy 09.2026"
-            )
-
-        month_start = month_date.replace(day=1)
-
-        if month_start.month == 12:
-            next_month = month_start.replace(
-                year=month_start.year + 1,
-                month=1,
-            )
-        else:
-            next_month = month_start.replace(
-                month=month_start.month + 1,
-            )
-
-        month_end = next_month - timedelta(days=1)
-
-        return period_report_message(
-            session,
-            month_start,
-            month_end,
-            "📊 OYLIK HISOBOT",
-        )
-
-    if command in ('/week', '/hafta'):
-        if not args:
-            return (
-                "Format:\n"
-                "/hafta 21.09.2026"
-            )
-
-        try:
-            selected_date = datetime.strptime(
-                args[0],
-                "%d.%m.%Y",
-            ).date()
-        except ValueError:
-            return (
-                "❌ Sana formati noto‘g‘ri.\n"
-                "Masalan: /hafta 21.09.2026"
-            )
-
-        week_start = selected_date - timedelta(
-            days=selected_date.weekday()
-        )
-        week_end = week_start + timedelta(days=6)
-
-        return period_report_message(
-            session,
-            week_start,
-            week_end,
-            "📊 HAFTALIK HISOBOT",
-        )
+    hour, minute = map(int, report_time.split(":"))
 
     business_date = get_current_business_date(
         now,
         session,
     )
 
-    if command in ('/daily', '/kunlik'):
-        return period_report_message(
-            session,
-            business_date,
-            business_date,
-            "📊 KUNLIK HISOBOT",
+    scheduled_date = business_date + timedelta(
+        days=1
+        if (hour, minute) < (boundary.hour, boundary.minute)
+        else 0
+    )
+
+    due = datetime.combine(
+        scheduled_date,
+        datetime.min.time(),
+        timezone,
+    ).replace(
+        hour=hour,
+        minute=minute,
+    )
+
+    if now < due:
+        return
+
+    key = f"scheduled-report:{business_date}"
+
+    if session.scalar(
+        select(TelegramOutbox.id).where(
+            TelegramOutbox.event_key == key
         )
+    ):
+        return
 
-    if command in ('/weekly', '/haftalik'):
-        week_start = (
-            business_date
-            - timedelta(
-                days=business_date.weekday()
-            )
-        )
+    report = current_report(
+        session,
+        now,
+    )
 
-        return period_report_message(
-            session,
-            week_start,
-            business_date,
-            "📊 HAFTALIK HISOBOT",
-        )
-
-    if command in ('/monthly', '/oylik'):
-        month_start = business_date.replace(
-            day=1
-        )
-
-        return period_report_message(
-            session,
-            month_start,
-            business_date,
-            "📊 OYLIK HISOBOT",
-        )
-
-    report = current_report(session, now)
-    enqueue(session, key, TelegramMessageType.DAILY_REPORT,
-            build_daily_report_message(report) + '\n\nJoriy holat. Biznes kuni yopilmadi.')
-
+    enqueue(
+        session,
+        key,
+        TelegramMessageType.DAILY_REPORT,
+        build_daily_report_message(report)
+        + "\n\nJoriy holat. Biznes kuni yopilmadi.",
+    )
 
 
 def period_report_message(session, start_date, end_date, title):
@@ -408,6 +304,137 @@ def command_reply(session, command, now=None, args=None):
             f"Biznes kuni: {business_date.strftime('%d.%m.%Y')}",
             f"Telegram navbati: {count}",
         ])
+
+    args = args or []
+
+    if command in ('/day', '/kun'):
+        if not args:
+            return (
+                "Format:\n"
+                "/kun 20.09.2026"
+            )
+
+        try:
+            selected_date = datetime.strptime(
+                args[0],
+                "%d.%m.%Y",
+            ).date()
+        except ValueError:
+            return (
+                "❌ Sana formati noto‘g‘ri.\n"
+                "Masalan: /kun 20.09.2026"
+            )
+
+        return period_report_message(
+            session,
+            selected_date,
+            selected_date,
+            "📊 KUNLIK HISOBOT",
+        )
+
+    if command in ('/month', '/oy'):
+        if not args:
+            return (
+                "Format:\n"
+                "/oy 09.2026"
+            )
+
+        try:
+            month_date = datetime.strptime(
+                args[0],
+                "%m.%Y",
+            ).date()
+        except ValueError:
+            return (
+                "❌ Oy formati noto‘g‘ri.\n"
+                "Masalan: /oy 09.2026"
+            )
+
+        month_start = month_date.replace(day=1)
+
+        if month_start.month == 12:
+            next_month = month_start.replace(
+                year=month_start.year + 1,
+                month=1,
+            )
+        else:
+            next_month = month_start.replace(
+                month=month_start.month + 1,
+            )
+
+        month_end = next_month - timedelta(days=1)
+
+        return period_report_message(
+            session,
+            month_start,
+            month_end,
+            "📊 OYLIK HISOBOT",
+        )
+
+    if command in ('/week', '/hafta'):
+        if not args:
+            return (
+                "Format:\n"
+                "/hafta 21.09.2026"
+            )
+
+        try:
+            selected_date = datetime.strptime(
+                args[0],
+                "%d.%m.%Y",
+            ).date()
+        except ValueError:
+            return (
+                "❌ Sana formati noto‘g‘ri.\n"
+                "Masalan: /hafta 21.09.2026"
+            )
+
+        week_start = selected_date - timedelta(
+            days=selected_date.weekday()
+        )
+        week_end = week_start + timedelta(days=6)
+
+        return period_report_message(
+            session,
+            week_start,
+            week_end,
+            "📊 HAFTALIK HISOBOT",
+        )
+
+    business_date = get_current_business_date(
+        now,
+        session,
+    )
+
+    if command in ('/daily', '/kunlik'):
+        return period_report_message(
+            session,
+            business_date,
+            business_date,
+            "📊 KUNLIK HISOBOT",
+        )
+
+    if command in ('/weekly', '/haftalik'):
+        week_start = business_date - timedelta(
+            days=business_date.weekday()
+        )
+
+        return period_report_message(
+            session,
+            week_start,
+            business_date,
+            "📊 HAFTALIK HISOBOT",
+        )
+
+    if command in ('/monthly', '/oylik'):
+        month_start = business_date.replace(day=1)
+
+        return period_report_message(
+            session,
+            month_start,
+            business_date,
+            "📊 OYLIK HISOBOT",
+        )
 
     report = current_report(session, now)
 
