@@ -75,19 +75,79 @@ def schedule_report(session, report_time, now=None):
 
 
 def command_reply(session, command, now=None):
-    if command == '/start':
-        return "Komronbek Zig'ir oshi admin bot\n/status\n/today\n/delivery"
+    help_text = (
+        "🤖 Komronbek Zig'ir oshi admin bot\n\n"
+        "Buyruqlar:\n"
+        "/status — server va Telegram holati\n"
+        "/today — bugungi savdo hisoboti\n"
+        "/delivery — yetkazib berish hisoboti\n"
+        "/help — buyruqlar ro‘yxati"
+    )
+
+    if command in ('/start', '/help'):
+        return help_text
+
     if command == '/status':
-        count = session.scalar(select(func.count()).select_from(TelegramOutbox).where(
-            TelegramOutbox.status != TelegramOutboxStatus.SENT))
-        return f'Backend: ishlayapti\nBiznes kuni: {get_current_business_date(now, session)}\nTelegram navbati: {count}'
+        count = session.scalar(
+            select(func.count())
+            .select_from(TelegramOutbox)
+            .where(
+                TelegramOutbox.status
+                != TelegramOutboxStatus.SENT
+            )
+        )
+
+        business_date = get_current_business_date(
+            now,
+            session,
+        )
+
+        return "\n".join([
+            "🟢 TIZIM HOLATI",
+            "",
+            "Backend: ishlayapti",
+            f"Biznes kuni: {business_date.strftime('%d.%m.%Y')}",
+            f"Telegram navbati: {count}",
+        ])
+
     report = current_report(session, now)
+
     if command == '/today':
         return build_daily_report_message(report)
+
     if command == '/delivery':
-        lines = [f'🚚 Yetkazib berish — {report.business_date}',
-                 f'Jami: {report.delivery.amount:,} so‘m'.replace(',', ' ')]
-        lines.extend(f'{w.worker_name} — {w.count} ta / {w.amount:,} so‘m'.replace(',', ' ')
-                     for w in report.delivery_workers)
-        return '\n'.join(lines)
-    return 'Buyruqlar: /start /status /today /delivery'
+        lines = [
+            "🚚 YETKAZIB BERISH HISOBOTI",
+            f"📅 {report.business_date.strftime('%d.%m.%Y')}",
+            "",
+            f"Buyurtmalar: {report.delivery.count} ta",
+            (
+                f"Jami: {report.delivery.amount:,} so‘m"
+                .replace(",", " ")
+            ),
+        ]
+
+        if report.delivery_workers:
+            lines.extend([
+                "",
+                "Yetkazib beruvchilar:",
+            ])
+
+            lines.extend(
+                (
+                    f"{worker.worker_name} — "
+                    f"{worker.count} ta / "
+                    f"{worker.amount:,} so‘m"
+                ).replace(",", " ")
+                for worker in report.delivery_workers
+            )
+        else:
+            lines.extend([
+                "",
+                "Bugun yetkazib berish yo‘q.",
+            ])
+
+        return "\n".join(lines)
+
+    return help_text
+

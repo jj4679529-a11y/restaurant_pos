@@ -11,9 +11,27 @@ def _format_money(amount: int) -> str:
     return f"{amount:,}".replace(",", " ") + " so‘m"
 
 
+def _local_datetime(value: datetime | None = None) -> datetime:
+    value = value or datetime.now(TASHKENT)
+
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=TASHKENT)
+
+    return value.astimezone(TASHKENT)
+
+
+def _date_time_lines(value: datetime | None = None) -> list[str]:
+    local = _local_datetime(value)
+
+    return [
+        f"Sana: {local.strftime('%d.%m.%Y')}",
+        f"Vaqt: {local.strftime('%H:%M')}",
+    ]
+
+
 def build_paid_order_message(order: Order, cashier_name: str = "Noma’lum") -> str:
     paid_at = order.paid_at or datetime.now(TASHKENT)
-    local_time = paid_at.astimezone(TASHKENT).strftime("%H:%M")
+
     lines = [
         "✅ TO'LOV QABUL QILINDI",
         "",
@@ -21,7 +39,7 @@ def build_paid_order_message(order: Order, cashier_name: str = "Noma’lum") -> 
         f"Kassir: {cashier_name}",
         f"Turi: {'Choyxona' if order.order_type is OrderType.CHAYKHANA else 'Yetkazib berish'}",
         f"Jami: {_format_money(order.total_amount)}",
-        f"Vaqt: {local_time}",
+        *_date_time_lines(paid_at),
     ]
     if order.order_type is OrderType.DELIVERY and order.delivery_worker is not None:
         lines.append(f"Yetkazib beruvchi: {order.delivery_worker.name}")
@@ -30,7 +48,7 @@ def build_paid_order_message(order: Order, cashier_name: str = "Noma’lum") -> 
 
 def build_cancelled_order_message(order: Order) -> str:
     cancelled_at = order.cancelled_at or datetime.now(TASHKENT)
-    local_time = cancelled_at.astimezone(TASHKENT).strftime("%H:%M")
+
     lines = [
         "❌ BUYURTMA BEKOR QILINDI",
         "",
@@ -39,7 +57,7 @@ def build_cancelled_order_message(order: Order) -> str:
         f"Summa: {_format_money(order.total_amount)}",
         f"Sabab: {order.cancel_reason}",
         f"Bekor qilgan: {order.canceller.name if order.canceller is not None else 'Noma’lum'}",
-        f"Vaqt: {local_time}",
+        *_date_time_lines(cancelled_at),
     ]
     if order.order_type is OrderType.DELIVERY and order.delivery_worker is not None:
         lines.append(f"Yetkazib beruvchi: {order.delivery_worker.name}")
@@ -87,17 +105,28 @@ def build_daily_report_message(report: DailyReportData) -> str:
 
 
 def build_printer_failure_message(job) -> str:
+    event_time = getattr(job, "created_at", None) or datetime.now(TASHKENT)
+
     return "\n".join([
-        "⚠️ CHEK CHIQMADI", "", f"Buyurtma: #{job.order.order_number}",
-        "To'lov qabul qilindi: HA", f"Jami: {_format_money(job.order.total_amount)}",
+        "⚠️ CHEK CHIQMADI",
+        "",
+        f"Buyurtma: #{job.order.order_number}",
+        "To'lov qabul qilindi: HA",
+        f"Jami: {_format_money(job.order.total_amount)}",
+        *_date_time_lines(event_time),
         f"Printer: {job.printer.name}",
         "Xato: Printerga ulanish yoki chop etish xatosi. Printerni tekshiring.",
     ])  # Never forward adapter exceptions, URLs, stack traces, or credentials.
 
 
 def build_delivery_assigned_message(order) -> str:
+    event_time = getattr(order, "created_at", None) or datetime.now(TASHKENT)
+
     return "\n".join([
-        "🚚 YETKAZIB BERISH TAYINLANDI", f"Buyurtma: #{order.order_number}",
+        "🚚 YETKAZIB BERISH TAYINLANDI",
+        "",
+        f"Buyurtma: #{order.order_number}",
         f"Yetkazib beruvchi: {order.delivery_worker.name}",
         f"Jami: {_format_money(order.total_amount)}",
+        *_date_time_lines(event_time),
     ])
