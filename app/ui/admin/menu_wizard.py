@@ -681,16 +681,22 @@ class StrictCreateDialog(QDialog):
                         "Butun, Yarim va Chorak narxlarini kiriting"
                     )
 
-            elif s in {
-                "Kompot va Ayron",
-                "Salqin ichimliklar",
-            }:
+            elif s == "Kompot va Ayron":
                 if any(
                     field.value() <= 0
                     for field in self.liter_prices.values()
                 ):
                     raise ValueError(
                         "0.5, 1, 1.5 va 2 litr narxlarini kiriting"
+                    )
+
+            elif s == "Salqin ichimliklar":
+                if all(
+                    field.value() <= 0
+                    for field in self.liter_prices.values()
+                ):
+                    raise ValueError(
+                        "Kamida bitta litr narxini kiriting"
                     )
 
             elif (
@@ -1377,16 +1383,22 @@ class StrictEditDialog(StrictCreateDialog):
                         "Butun, Yarim va Chorak narxlarini kiriting"
                     )
 
-            elif s in {
-                "Kompot va Ayron",
-                "Salqin ichimliklar",
-            }:
+            elif s == "Kompot va Ayron":
                 if any(
                     field.value() <= 0
                     for field in self.liter_prices.values()
                 ):
                     raise ValueError(
                         "0.5, 1, 1.5 va 2 litr narxlarini kiriting"
+                    )
+
+            elif s == "Salqin ichimliklar":
+                if all(
+                    field.value() <= 0
+                    for field in self.liter_prices.values()
+                ):
+                    raise ValueError(
+                        "Kamida bitta litr narxini kiriting"
                     )
 
             elif (
