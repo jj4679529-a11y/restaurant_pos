@@ -826,10 +826,7 @@ class StrictCreateDialog(QDialog):
                     ],
                 )
 
-            if s in {
-                "Kompot va Ayron",
-                "Salqin ichimliklar",
-            }:
+            if s == "Kompot va Ayron":
                 self.client.save_price_options(
                     product["id"],
                     [
@@ -839,6 +836,22 @@ class StrictCreateDialog(QDialog):
                             "price": self.liter_prices[label].value(),
                         }
                         for label, value in LITERS
+                    ],
+                )
+
+            if s == "Salqin ichimliklar":
+                # Har bir litr narxi ixtiyoriy.
+                # Faqat Admin narx kiritgan variantlar saqlanadi.
+                self.client.save_price_options(
+                    product["id"],
+                    [
+                        {
+                            "name": label,
+                            "quantity": value,
+                            "price": self.liter_prices[label].value(),
+                        }
+                        for label, value in LITERS
+                        if self.liter_prices[label].value() > 0
                     ],
                 )
 
@@ -1483,10 +1496,7 @@ class StrictEditDialog(StrictCreateDialog):
                     ],
                 )
 
-            if s in {
-                "Kompot va Ayron",
-                "Salqin ichimliklar",
-            }:
+            if s == "Kompot va Ayron":
                 self.client.save_price_options(
                     self.original["id"],
                     [
@@ -1496,6 +1506,22 @@ class StrictEditDialog(StrictCreateDialog):
                             "price": self.liter_prices[label].value(),
                         }
                         for label, value in LITERS
+                    ],
+                )
+
+            if s == "Salqin ichimliklar":
+                # Tahrirlashda ham faqat narxi mavjud
+                # litr variantlari faol qoladi.
+                self.client.save_price_options(
+                    self.original["id"],
+                    [
+                        {
+                            "name": label,
+                            "quantity": value,
+                            "price": self.liter_prices[label].value(),
+                        }
+                        for label, value in LITERS
+                        if self.liter_prices[label].value() > 0
                     ],
                 )
 
