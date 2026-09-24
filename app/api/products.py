@@ -39,3 +39,17 @@ def create_product(data: ProductCreate, db: DbSession, _admin: AdminUser):
 @router.patch("/{product_id}", response_model=ProductResponse)
 def update_product(product_id: int, data: ProductUpdate, db: DbSession, _admin: AdminUser):
     return _response(catalog_service.update_product(db, product_id, data))
+
+
+
+@router.delete("/{product_id}")
+def delete_product(
+    product_id: int,
+    db: DbSession,
+    _admin: AdminUser,
+):
+    catalog_service.delete_product(db, product_id)
+    return {
+        "deleted": True,
+        "product_id": product_id,
+    }

@@ -60,6 +60,12 @@ class AdminApiClient(PosApiClient):
             method = 'POST'
         return self.request(method, path, data)
 
+    def delete_product(self, product_id):
+        return self.request(
+            "DELETE",
+            f"/api/products/{product_id}",
+        )
+
     def save_osh_prices(self, product_id, half_price, full_price):
         return self.request('PUT', f'/api/admin/products/{product_id}/osh-prices',
                             {'half_price': half_price, 'full_price': full_price})

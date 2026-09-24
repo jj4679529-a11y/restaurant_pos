@@ -1,10 +1,10 @@
 from collections.abc import Sequence
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import AddOn, Category, PriceOption, Product, ProductAddOn
+from app.models import AddOn, Category, ManualPricePreset, OrderItem, PriceOption, Product, ProductAddOn
 from app.schemas.catalog import (
     AddOnCreate, AddOnUpdate, CategoryCreate, CategoryUpdate, PriceOptionCreate,
     PriceOptionUpdate, ProductCreate, ProductUpdate,
@@ -108,6 +108,48 @@ def update_product(session: Session, product_id: int, data: ProductUpdate) -> Pr
         setattr(product, field, value)
     _commit(session, product)
     return get_product(session, product_id)
+
+
+def delete_product(session: Session, product_id: int) -> None:
+    product = get_product(session, product_id)
+
+    used = session.scalar(
+        select(OrderItem.id)
+        .where(OrderItem.product_id == product_id)
+        .limit(1)
+    )
+
+    if used is not None:
+        raise ServiceError(
+            409,
+            "product_has_history",
+            "Bu mahsulot oldingi buyurtmalarda ishlatilgan. Uni o‘chirish o‘rniga nofaol qiling.",
+        )
+
+    try:
+        session.execute(
+            delete(ProductAddOn)
+            .where(ProductAddOn.product_id == product_id)
+        )
+
+        session.execute(
+            delete(ManualPricePreset)
+            .where(ManualPricePreset.product_id == product_id)
+        )
+
+        session.execute(
+            delete(PriceOption)
+            .where(PriceOption.product_id == product_id)
+        )
+
+        session.delete(product)
+        session.commit()
+
+    except IntegrityError as exc:
+        session.rollback()
+        raise conflict(
+            "Mahsulot boshqa yozuvlarga bog‘langan. Uni nofaol qiling."
+        ) from exc
 
 
 def list_price_options(session: Session, product_id: int, limit: int, offset: int) -> Sequence[PriceOption]:

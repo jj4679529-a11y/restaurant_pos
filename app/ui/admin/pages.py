@@ -88,9 +88,36 @@ class ResourcePage(QWidget):
         self.add_button.clicked.connect(lambda: self.edit(new=True))
         self.edit_button = QPushButton('TANLANGANNI TAHRIRLASH')
         self.edit_button.clicked.connect(lambda: self.edit())
+
+        self.active_button = QPushButton(
+            'FAOL / NOFAOL'
+        )
+        self.active_button.setVisible(
+            resource == 'products'
+        )
+        self.active_button.clicked.connect(
+            self.toggle_product_active
+        )
+
+        self.delete_button = QPushButton(
+            'BUTUNLAY O‘CHIRISH'
+        )
+        self.delete_button.setVisible(
+            resource == 'products'
+        )
+        self.delete_button.clicked.connect(
+            self.delete_product
+        )
+
         refresh = QPushButton('↻ YANGILASH')
         refresh.clicked.connect(self.load)
-        for button in (self.add_button, self.edit_button, refresh):
+        for button in (
+            self.add_button,
+            self.edit_button,
+            self.active_button,
+            self.delete_button,
+            refresh,
+        ):
             button.setMinimumHeight(54)
             actions.addWidget(button)
         actions.addStretch()
@@ -170,15 +197,6 @@ class ResourcePage(QWidget):
     def render(self):
         self.rows.clear()
         for record in self.records:
-            # Admin Menyu shows only active products.
-            # Inactive products remain available through the API for
-            # history/edit/test compatibility, but are hidden from this list.
-            if (
-                self.resource == 'products'
-                and not record.get('is_active', True)
-            ):
-                continue
-
             if self.resource == 'products' and self.category.currentData() is not None and record['category_id'] != self.category.currentData():
                 continue
             active = 'Faol' if record.get('is_active', True) else 'Nofaol'
@@ -419,6 +437,120 @@ class ResourcePage(QWidget):
 
         except Exception as error:
             self.on_error(error)
+
+    def toggle_product_active(self):
+        product = self.selected()
+
+        if not product:
+            QMessageBox.information(
+                self,
+                "Mahsulot",
+                "Avval mahsulotni tanlang.",
+            )
+            return
+
+        if product.get("_strict_resource") == "addons":
+            QMessageBox.information(
+                self,
+                "Qo‘shimcha",
+                "Bu Osh qo‘shimchasi. Uni qo‘shimchalar sozlamasidan boshqaring.",
+            )
+            return
+
+        currently_active = product.get(
+            "is_active",
+            True,
+        )
+
+        action = (
+            "nofaol qilish"
+            if currently_active
+            else "faollashtirish"
+        )
+
+        answer = QMessageBox.question(
+            self,
+            "Mahsulot holati",
+            f"{product['name']} mahsulotini {action}?",
+        )
+
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            self.client.save_record(
+                "products",
+                {
+                    "is_active": not currently_active,
+                },
+                product,
+            )
+
+            self.load()
+
+            self.notice.setText(
+                "Mahsulot "
+                + (
+                    "nofaol qilindi."
+                    if currently_active
+                    else "faollashtirildi."
+                )
+            )
+
+        except Exception as error:
+            self.on_error(error)
+
+
+    def delete_product(self):
+        product = self.selected()
+
+        if not product:
+            QMessageBox.information(
+                self,
+                "Mahsulot",
+                "Avval mahsulotni tanlang.",
+            )
+            return
+
+        if product.get("_strict_resource") == "addons":
+            QMessageBox.information(
+                self,
+                "Qo‘shimcha",
+                "Osh qo‘shimchasini bu tugma orqali o‘chirib bo‘lmaydi.",
+            )
+            return
+
+        answer = QMessageBox.warning(
+            self,
+            "Butunlay o‘chirish",
+            (
+                f"{product['name']} mahsuloti butunlay o‘chirilsinmi?\n\n"
+                "Bu amalni ortga qaytarib bo‘lmaydi.\n"
+                "Agar mahsulot oldingi buyurtmalarda ishlatilgan bo‘lsa, "
+                "tizim o‘chirishni bloklaydi."
+            ),
+            QMessageBox.StandardButton.Yes
+            | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            self.client.delete_product(
+                product["id"]
+            )
+
+            self.load()
+
+            self.notice.setText(
+                "Mahsulot butunlay o‘chirildi."
+            )
+
+        except Exception as error:
+            self.on_error(error)
+
 
     def portions(self):
         from app.ui.admin.portions import PortionsDialog
