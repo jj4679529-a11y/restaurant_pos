@@ -192,14 +192,30 @@ class ProductDialog(QDialog):
 
             body.addWidget(other_price)
 
-        available_addons = [
-            addon
-            for addon in product.get(
-                "available_addons", []
-            )
-            if addon.get("is_active", True)
-            and addon.get("relationship_active", True)
-        ]
+        # Keep only one visible row for each addon.
+        # This also protects the cashier UI from duplicated relationship data.
+        available_addons = []
+        seen_addon_ids = set()
+
+        for addon in product.get(
+            "available_addons", []
+        ):
+            if not addon.get("is_active", True):
+                continue
+
+            if not addon.get(
+                "relationship_active",
+                True,
+            ):
+                continue
+
+            addon_id = addon.get("id")
+
+            if addon_id in seen_addon_ids:
+                continue
+
+            seen_addon_ids.add(addon_id)
+            available_addons.append(addon)
 
         if available_addons:
             body.addWidget(QLabel("Qo‘shimchalar"))
