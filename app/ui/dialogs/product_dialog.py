@@ -44,6 +44,48 @@ def _is_gosht(value):
     return _key(value) == "gosht"
 
 
+
+def _unique_available_addons(product):
+    """Return one visible active addon per id/name.
+
+    Old databases may contain logically duplicated addons with different IDs.
+    Cashier UI must still show only one Tuxum/Qazi/Go'sht row.
+    """
+    result = []
+    seen_ids = set()
+    seen_names = set()
+
+    for addon in product.get("available_addons", []):
+        if not addon.get("is_active", True):
+            continue
+
+        if not addon.get("relationship_active", True):
+            continue
+
+        addon_id = addon.get("id")
+
+        normalized_name = "".join(
+            char
+            for char in str(addon.get("name", "")).casefold()
+            if char.isalnum()
+        )
+
+        if addon_id in seen_ids:
+            continue
+
+        if normalized_name and normalized_name in seen_names:
+            continue
+
+        seen_ids.add(addon_id)
+
+        if normalized_name:
+            seen_names.add(normalized_name)
+
+        result.append(addon)
+
+    return result
+
+
 class ProductDialog(QDialog):
     def __init__(self, product, existing=None, parent=None):
         super().__init__(parent)
@@ -192,30 +234,9 @@ class ProductDialog(QDialog):
 
             body.addWidget(other_price)
 
-        # Keep only one visible row for each addon.
-        # This also protects the cashier UI from duplicated relationship data.
-        available_addons = []
-        seen_addon_ids = set()
-
-        for addon in product.get(
-            "available_addons", []
-        ):
-            if not addon.get("is_active", True):
-                continue
-
-            if not addon.get(
-                "relationship_active",
-                True,
-            ):
-                continue
-
-            addon_id = addon.get("id")
-
-            if addon_id in seen_addon_ids:
-                continue
-
-            seen_addon_ids.add(addon_id)
-            available_addons.append(addon)
+        # One logical addon must appear only once even when an old DB
+        # contains duplicate rows with different IDs.
+        available_addons = _unique_available_addons(product)
 
         if available_addons:
             body.addWidget(QLabel("Qo‘shimchalar"))
@@ -727,8 +748,8 @@ class ProductDialog(QDialog):
                 "Jizz narxini tanlang yoki kiriting"
             )
 
-        for addon in self.product.get(
-            "available_addons", []
+        for addon in _unique_available_addons(
+            self.product
         ):
             if (
                 addon.get("is_required")

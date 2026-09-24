@@ -24,8 +24,28 @@ for logger_name in ('httpx', 'httpcore', 'httpcore.http11', 'httpcore.connection
     logging.getLogger(logger_name).addFilter(RedactTelegramURL())
 
 
+BOT_COMMANDS = [
+    {"command": "boshlash", "description": "Botni ishga tushirish"},
+    {"command": "yordam", "description": "Barcha buyruqlar ro'yxati"},
+    {"command": "holat", "description": "Server va Telegram holati"},
+    {"command": "bugun", "description": "Bugungi umumiy hisobot"},
+    {"command": "kunlik", "description": "Joriy kun hisoboti"},
+    {"command": "haftalik", "description": "Joriy hafta hisoboti"},
+    {"command": "oylik", "description": "Joriy oy hisoboti"},
+    {"command": "buyurtmalar", "description": "Oxirgi buyurtmalar"},
+    {"command": "kutilayotgan", "description": "Kutilayotgan buyurtmalar"},
+    {"command": "bekor", "description": "Bekor qilingan buyurtmalar"},
+    {"command": "yetkazish", "description": "Yetkazib berish hisoboti"},
+    {"command": "yetkazuvchilar", "description": "Yetkazib beruvchilar hisoboti"},
+    {"command": "kassirlar", "description": "Kassirlar bo'yicha savdo"},
+    {"command": "topmahsulotlar", "description": "Eng ko'p sotilgan mahsulotlar"},
+]
+
+
 class TelegramClient(Protocol):
     def send_message(self, chat_id: str, text: str) -> None: ...
+
+    def set_commands(self) -> None: ...
 
 
 class TelegramBotClient:

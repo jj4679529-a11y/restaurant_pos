@@ -115,6 +115,26 @@ class TelegramRuntime:
                 acquired = bool(connection.scalar(select(func.pg_try_advisory_lock(LEADER_NAMESPACE, 0))))
                 connection.commit()
                 if acquired:
+                    # Register Telegram slash-command menu once whenever this
+                    # server becomes the singleton Telegram leader.
+                    try:
+                        set_commands = getattr(
+                            self.client,
+                            "set_commands",
+                            None,
+                        )
+                        if callable(set_commands):
+                            set_commands()
+                            log.info(
+                                "Telegram command menu registered"
+                            )
+                    except Exception:
+                        # Menu registration must never stop POS or reports.
+                        log.warning(
+                            "Telegram command menu registration failed; "
+                            "will continue without blocking the worker"
+                        )
+
                     while not self.stop_event.is_set():
                         # Detect leader connection loss before every cycle.
                         connection.execute(select(1))
