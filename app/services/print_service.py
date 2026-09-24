@@ -81,3 +81,48 @@ def retry_print_job(session: Session, print_job_id: int, adapter: PrinterAdapter
         raise ServiceError(409, "PRINT_JOB_NOT_RETRYABLE", "Only failed print jobs can be retried")
     # Preserve the failed job and create a distinct historical attempt.
     return print_order(session, previous.order_id, previous.printer_id, adapter)
+
+
+def build_receipt_for_order(
+    session: Session,
+    order_id: int,
+) -> str:
+    order = _order(session, order_id)
+    return build_strict_receipt(
+        order,
+        _restaurant_name(session),
+    )
+
+
+def record_local_print_result(
+    session: Session,
+    order_id: int,
+    printer_id: int,
+    success: bool,
+    error_message: str | None = None,
+) -> PrintResult:
+    order = _order(session, order_id)
+    printer = _printer(session, printer_id)
+    now = datetime.now(TASHKENT)
+
+    job = PrintJob(
+        order_id=order.id,
+        printer_id=printer.id,
+        status=(
+            PrintJobStatus.SUCCESS
+            if success
+            else PrintJobStatus.ERROR
+        ),
+        attempted_at=now,
+        printed_at=now if success else None,
+        error_message=(
+            None
+            if success
+            else (error_message or "Chek chiqarilmadi")[:1000]
+        ),
+    )
+
+    session.add(job)
+    session.flush()
+
+    return PrintResult(job=job)

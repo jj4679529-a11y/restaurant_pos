@@ -4,7 +4,12 @@ from fastapi import APIRouter, Depends
 
 from app.api.deps import CashierOrAdminUser, DbSession
 from app.printer.interface import EscPosPrinter, PrinterAdapter
-from app.schemas.printing import PrintJobResponse, PrintOrderRequest
+from app.schemas.printing import (
+    LocalPrintResultRequest,
+    PrintJobResponse,
+    PrintOrderRequest,
+    ReceiptResponse,
+)
 from app.services import print_service
 
 router = APIRouter(tags=["printing"])
@@ -48,4 +53,48 @@ def retry_print_job(print_job_id: int, db: DbSession, adapter: PrinterAdapterDep
     except Exception:
         db.rollback()
         raise
+    return _response(result.job)
+
+
+@router.get(
+    "/orders/{order_id}/receipt",
+    response_model=ReceiptResponse,
+)
+def get_order_receipt(
+    order_id: int,
+    db: DbSession,
+    _user: CashierOrAdminUser,
+):
+    return {
+        "order_id": order_id,
+        "receipt": print_service.build_receipt_for_order(
+            db,
+            order_id,
+        ),
+    }
+
+
+@router.post(
+    "/orders/{order_id}/local-print-result",
+    response_model=PrintJobResponse,
+)
+def local_print_result(
+    order_id: int,
+    data: LocalPrintResultRequest,
+    db: DbSession,
+    _user: CashierOrAdminUser,
+):
+    try:
+        result = print_service.record_local_print_result(
+            db,
+            order_id,
+            data.printer_id,
+            data.success,
+            data.error_message,
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
     return _response(result.job)

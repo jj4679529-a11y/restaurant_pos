@@ -186,6 +186,37 @@ class PosApiClient:
         return response
 
     def print_order(self, order_id: int, printer_id: int) -> dict[str, Any]:
-        response = self.post(f"/api/orders/{order_id}/print", {"printer_id": printer_id})
+        response = self.post(
+            f"/api/orders/{order_id}/print",
+            {"printer_id": printer_id},
+        )
+        assert isinstance(response, dict)
+        return response
+
+    def get_print_receipt(
+        self,
+        order_id: int,
+    ) -> dict[str, Any]:
+        response = self.get(
+            f"/api/orders/{order_id}/receipt"
+        )
+        assert isinstance(response, dict)
+        return response
+
+    def report_local_print(
+        self,
+        order_id: int,
+        printer_id: int,
+        success: bool,
+        error_message: str | None = None,
+    ) -> dict[str, Any]:
+        response = self.post(
+            f"/api/orders/{order_id}/local-print-result",
+            {
+                "printer_id": printer_id,
+                "success": success,
+                "error_message": error_message,
+            },
+        )
         assert isinstance(response, dict)
         return response

@@ -19,3 +19,14 @@ class PrintJobResponse(BaseModel):
     attempted_at: datetime | None
     printed_at: datetime | None
     error_message: str | None
+
+
+class ReceiptResponse(BaseModel):
+    order_id: int
+    receipt: str
+
+
+class LocalPrintResultRequest(BaseModel):
+    printer_id: int = Field(gt=0)
+    success: bool
+    error_message: str | None = Field(default=None, max_length=1000)

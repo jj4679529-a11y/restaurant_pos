@@ -1,18 +1,10 @@
 import ctypes
 import os
 from ctypes import wintypes
-from typing import Protocol
-
-from app.models import Printer
 
 
-class PrinterError(Exception):
-    """A recoverable printer transport or hardware failure."""
-
-
-class PrinterAdapter(Protocol):
-    def print_receipt(self, printer: Printer, receipt: str) -> None:
-        ...
+class LocalPrinterError(Exception):
+    """Recoverable local Windows printer error."""
 
 
 class DOC_INFO_1(ctypes.Structure):
@@ -47,17 +39,15 @@ def print_receipt_by_name(
     printer_name: str,
     receipt: str,
 ) -> None:
-    """Print directly to a printer installed on this Windows terminal."""
-
     if os.name != "nt":
-        raise PrinterError(
+        raise LocalPrinterError(
             "Windows printer backend faqat Windows tizimida ishlaydi"
         )
 
     printer_name = (printer_name or "").strip()
 
     if not printer_name:
-        raise PrinterError(
+        raise LocalPrinterError(
             "Printer qurilma nomi kiritilmagan"
         )
 
@@ -86,9 +76,7 @@ def print_receipt_by_name(
         StartDocPrinterW.restype = wintypes.DWORD
 
         StartPagePrinter = winspool.StartPagePrinter
-        StartPagePrinter.argtypes = [
-            wintypes.HANDLE,
-        ]
+        StartPagePrinter.argtypes = [wintypes.HANDLE]
         StartPagePrinter.restype = wintypes.BOOL
 
         WritePrinter = winspool.WritePrinter
@@ -101,21 +89,15 @@ def print_receipt_by_name(
         WritePrinter.restype = wintypes.BOOL
 
         EndPagePrinter = winspool.EndPagePrinter
-        EndPagePrinter.argtypes = [
-            wintypes.HANDLE,
-        ]
+        EndPagePrinter.argtypes = [wintypes.HANDLE]
         EndPagePrinter.restype = wintypes.BOOL
 
         EndDocPrinter = winspool.EndDocPrinter
-        EndDocPrinter.argtypes = [
-            wintypes.HANDLE,
-        ]
+        EndDocPrinter.argtypes = [wintypes.HANDLE]
         EndDocPrinter.restype = wintypes.BOOL
 
         ClosePrinter = winspool.ClosePrinter
-        ClosePrinter.argtypes = [
-            wintypes.HANDLE,
-        ]
+        ClosePrinter.argtypes = [wintypes.HANDLE]
         ClosePrinter.restype = wintypes.BOOL
 
         handle = wintypes.HANDLE()
@@ -168,7 +150,7 @@ def print_receipt_by_name(
                         )
 
                     if written.value != len(raw):
-                        raise PrinterError(
+                        raise LocalPrinterError(
                             "Chek printerga to'liq yuborilmadi"
                         )
 
@@ -181,24 +163,10 @@ def print_receipt_by_name(
         finally:
             ClosePrinter(handle)
 
-    except PrinterError:
+    except LocalPrinterError:
         raise
 
     except OSError as error:
-        raise PrinterError(
+        raise LocalPrinterError(
             f"Windows printer xatosi: {error}"
         ) from error
-
-
-class EscPosPrinter:
-    """Compatibility adapter for server-side printing."""
-
-    def print_receipt(
-        self,
-        printer: Printer,
-        receipt: str,
-    ) -> None:
-        print_receipt_by_name(
-            printer.address,
-            receipt,
-        )
