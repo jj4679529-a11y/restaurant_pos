@@ -74,7 +74,7 @@ def _addon_price(session: Session, product: Product, addon_input: OrderItemAddOn
     addon = session.get(AddOn, addon_input.addon_id)
     if addon is None:
         raise not_found("Add-on")
-    if menu_key(addon.name) in OSH_ADDONS and menu_key(product.name) != 'osh':
+    if menu_key(addon.name) in OSH_ADDONS and 'osh' not in menu_key(product.name):
         raise ServiceError(400, 'osh_addon_only', 'This addon is available only for Osh')
     if menu_key(addon.name) == 'gosht' and (addon_input.manual_price is None or addon_input.manual_price < 5000):
         raise ServiceError(400, 'gosht_minimum', 'Go‘sht amount must be at least 5000 UZS')

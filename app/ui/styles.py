@@ -1101,4 +1101,47 @@ QLabel#totalLabel {
 
 /* ========================================================== */
 
+
+
+/* ==========================================================
+   CASHIER LIGHT OVERRIDE
+   Photo background disabled.
+   ========================================================== */
+
+QMainWindow {
+    background: #F3F0E8;
+}
+
+QWidget#cashierRoot {
+    background: #F3F0E8;
+}
+
+QWidget#cashierRoot QWidget#panel,
+QWidget#cashierRoot QWidget#summaryCard {
+    background: #FFFFFF;
+    border: 1px solid #E0E4E1;
+    border-radius: 14px;
+}
+
+QWidget#cashierRoot QScrollArea,
+QWidget#cashierRoot QScrollArea > QWidget > QWidget {
+    background: #FFFFFF;
+}
+
+QWidget#cashierRoot QListWidget {
+    background: #FFFFFF;
+}
+
+QWidget#cashierRoot QToolButton#productCard {
+    background: #FFFFFF;
+    border: 1px solid #D9DED9;
+}
+
+QWidget#cashierRoot QToolButton#productCard:hover {
+    background: #FFFFFF;
+    border: 1px solid #92AA9E;
+}
+
+/* ========================================================== */
+
 """

@@ -773,6 +773,27 @@ class StrictCreateDialog(QDialog):
             )
 
             if s == "Osh":
+                # Every Osh product receives the standard Osh addons.
+                # Product name may be "Osh", "Zig'ir Osh", "Milliy osh", etc.
+                osh_addon_keys = {
+                    "tuxum",
+                    "bedanatuxum",
+                    "qazi",
+                    "gosht",
+                }
+
+                for addon in self.client.list_records("addons"):
+                    if (
+                        addon.get("is_active", True)
+                        and _key(addon.get("name")) in osh_addon_keys
+                    ):
+                        self.client.set_link(
+                            product["id"],
+                            addon["id"],
+                            True,
+                            False,
+                        )
+
                 self.client.save_price_options(
                     product["id"],
                     [

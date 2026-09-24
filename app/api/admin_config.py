@@ -102,7 +102,7 @@ def set_link(product_id: int, addon_id: int, data: LinkState, db: DbSession, _ad
     product, addon = db.get(Product, product_id), db.get(AddOn, addon_id)
     if product is None or addon is None:
         raise not_found('Product or addon')
-    if data.is_active and menu_key(addon.name) in OSH_ADDONS and menu_key(product.name) != 'osh':
+    if data.is_active and menu_key(addon.name) in OSH_ADDONS and 'osh' not in menu_key(product.name):
         raise ServiceError(400, 'osh_addon_only', 'This addon is available only for Osh')
     if data.is_active and (not product.is_active or not addon.is_active):
         raise ServiceError(400, 'inactive_catalog_item', 'Activate product and addon first')

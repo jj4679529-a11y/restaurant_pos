@@ -166,7 +166,7 @@ def update_addon(session: Session, addon_id: int, data: AddOnUpdate) -> AddOn:
 def link_addon(session: Session, product_id: int, addon_id: int) -> ProductAddOn:
     product = get_product(session, product_id)
     addon = get_addon(session, addon_id)
-    if menu_key(addon.name) in OSH_ADDONS and menu_key(product.name) != 'osh':
+    if menu_key(addon.name) in OSH_ADDONS and 'osh' not in menu_key(product.name):
         raise ServiceError(400, 'osh_addon_only', 'This addon is available only for Osh')
     if not product.is_active or not addon.is_active:
         raise ServiceError(400, "inactive_catalog_item", "Inactive products or add-ons cannot be linked")
