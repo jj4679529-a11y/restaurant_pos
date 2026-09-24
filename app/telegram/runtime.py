@@ -41,9 +41,16 @@ def handle_update(session, update, configured_chat_id):
     text = message.get('text', '')
     if not isinstance(text, str) or not text.startswith('/'):
         return False
-    command = text.split()[0].split('@')[0].lower()
-    enqueue(session, f'bot:{configured_chat_id}:{update["update_id"]}',
-            TelegramMessageType.BOT_REPLY, command_reply(session, command))
+    parts = text.strip().split()
+    command = parts[0].split('@')[0].lower()
+    args = parts[1:]
+
+    enqueue(
+        session,
+        f'bot:{configured_chat_id}:{update["update_id"]}',
+        TelegramMessageType.BOT_REPLY,
+        command_reply(session, command, args=args),
+    )
     return True
 
 
