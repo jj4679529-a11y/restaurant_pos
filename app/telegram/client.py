@@ -29,6 +29,7 @@ BOT_COMMANDS = [
     {"command": "yordam", "description": "Barcha buyruqlar ro'yxati"},
     {"command": "holat", "description": "Server va Telegram holati"},
     {"command": "bugun", "description": "Bugungi umumiy hisobot"},
+    {"command": "kecha", "description": "Kechagi kun hisoboti"},
     {"command": "kunlik", "description": "Joriy kun hisoboti"},
     {"command": "haftalik", "description": "Joriy hafta hisoboti"},
     {"command": "oylik", "description": "Joriy oy hisoboti"},
@@ -38,7 +39,8 @@ BOT_COMMANDS = [
     {"command": "yetkazish", "description": "Yetkazib berish hisoboti"},
     {"command": "yetkazuvchilar", "description": "Yetkazib beruvchilar hisoboti"},
     {"command": "kassirlar", "description": "Kassirlar bo'yicha savdo"},
-    {"command": "topmahsulotlar", "description": "Eng ko'p sotilgan mahsulotlar"},
+    {"command": "topmahsulotlar", "description": "Bugungi TOP mahsulotlar"},
+    {"command": "mahsulotlar", "description": "Mahsulotlar kunlik haftalik oylik"},
 ]
 
 

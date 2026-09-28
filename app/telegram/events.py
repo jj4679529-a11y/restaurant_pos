@@ -1,5 +1,6 @@
 """Project committed facts into the existing outbox, outside POS transactions."""
 from datetime import datetime, timedelta
+from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import String, cast, exists, func, select
@@ -246,12 +247,100 @@ def period_report_message(session, start_date, end_date, title):
     return "\n".join(lines)
 
 
+
+def _format_product_qty(value):
+    qty = Decimal(str(value or 0))
+
+    if qty == qty.to_integral_value():
+        return str(int(qty))
+
+    return format(qty.normalize(), "f").rstrip("0").rstrip(".")
+
+
+def product_report_message(
+    session,
+    start_date,
+    end_date,
+    title,
+    limit=None,
+):
+    rows_query = (
+        select(
+            Product.name,
+            func.coalesce(func.sum(OrderItem.quantity), 0).label("qty"),
+        )
+        .join(
+            OrderItem,
+            OrderItem.product_id == Product.id,
+        )
+        .join(
+            Order,
+            Order.id == OrderItem.order_id,
+        )
+        .join(
+            BusinessDay,
+            BusinessDay.id == Order.business_day_id,
+        )
+        .where(
+            BusinessDay.business_date >= start_date,
+            BusinessDay.business_date <= end_date,
+            Order.payment_status == PaymentStatus.PAID,
+        )
+        .group_by(
+            Product.id,
+            Product.name,
+        )
+        .order_by(
+            func.sum(OrderItem.quantity).desc(),
+            Product.name,
+        )
+    )
+
+    if limit is not None:
+        rows_query = rows_query.limit(limit)
+
+    rows = session.execute(rows_query).all()
+
+    date_text = (
+        start_date.strftime("%d.%m.%Y")
+        if start_date == end_date
+        else (
+            f"{start_date.strftime('%d.%m.%Y')}"
+            f" — {end_date.strftime('%d.%m.%Y')}"
+        )
+    )
+
+    lines = [
+        title,
+        f"📅 {date_text}",
+        "",
+    ]
+
+    if not rows:
+        lines.append("Sotilgan mahsulot yo‘q.")
+        return "\n".join(lines)
+
+    for index, row in enumerate(rows, 1):
+        qty = _format_product_qty(row.qty)
+
+        if limit is None:
+            lines.append(
+                f"{row.name} — {qty} ta"
+            )
+        else:
+            lines.append(
+                f"{index}. {row.name} — {qty} ta"
+            )
+
+    return "\n".join(lines)
+
 def command_reply(session, command, now=None, args=None):
     help_text = (
         "🤖 Komronbek Zig'ir oshi — boshqaruv boti\n\n"
 
         "📊 HISOBOTLAR\n"
         "/bugun — bugungi to‘liq hisobot\n"
+        "/kecha — kechagi kun hisoboti\n"
         "/kunlik — joriy kun hisoboti\n"
         "/haftalik — joriy hafta hisoboti\n"
         "/oylik — joriy oy hisoboti\n\n"
@@ -272,7 +361,10 @@ def command_reply(session, command, now=None, args=None):
 
         "👥 SAVDO TAHLILI\n"
         "/kassirlar — kassirlar kesimi\n"
-        "/topmahsulotlar — eng ko‘p sotilgan mahsulotlar\n\n"
+        "/topmahsulotlar — bugungi TOP mahsulotlar\n"
+        "/mahsulotlar kunlik — bugungi mahsulotlar soni\n"
+        "/mahsulotlar haftalik — oxirgi 7 kun\n"
+        "/mahsulotlar oylik — joriy oy\n\n"
 
         "⚙️ TIZIM\n"
         "/holat — server va Telegram holati\n"
@@ -306,6 +398,67 @@ def command_reply(session, command, now=None, args=None):
         ])
 
     args = args or []
+
+    business_date = get_current_business_date(
+        now,
+        session,
+    )
+
+    if command in ('/yesterday', '/kecha'):
+        yesterday = business_date - timedelta(days=1)
+
+        return period_report_message(
+            session,
+            yesterday,
+            yesterday,
+            "📊 KECHAGI HISOBOT",
+        )
+
+    if command in ('/products', '/mahsulotlar'):
+        period = (
+            args[0].lower()
+            if args
+            else "kunlik"
+        )
+
+        if period in ("kunlik", "daily", "bugun"):
+            start_date = business_date
+            end_date = business_date
+            title = "📦 MAHSULOTLAR — KUNLIK"
+
+        elif period in ("haftalik", "weekly", "hafta"):
+            start_date = business_date - timedelta(days=6)
+            end_date = business_date
+            title = "📦 MAHSULOTLAR — OXIRGI 7 KUN"
+
+        elif period in ("oylik", "monthly", "oy"):
+            start_date = business_date.replace(day=1)
+            end_date = business_date
+            title = "📦 MAHSULOTLAR — OYLIK"
+
+        else:
+            return (
+                "Format:\n"
+                "/mahsulotlar kunlik\n"
+                "/mahsulotlar haftalik\n"
+                "/mahsulotlar oylik"
+            )
+
+        return product_report_message(
+            session,
+            start_date,
+            end_date,
+            title,
+        )
+
+    if command in ('/topproducts', '/topmahsulotlar'):
+        return product_report_message(
+            session,
+            business_date,
+            business_date,
+            "🏆 TOP MAHSULOTLAR",
+            limit=10,
+        )
 
     if command in ('/day', '/kun'):
         if not args:
@@ -401,11 +554,6 @@ def command_reply(session, command, now=None, args=None):
             "📊 HAFTALIK HISOBOT",
         )
 
-    business_date = get_current_business_date(
-        now,
-        session,
-    )
-
     if command in ('/daily', '/kunlik'):
         return period_report_message(
             session,
@@ -415,15 +563,13 @@ def command_reply(session, command, now=None, args=None):
         )
 
     if command in ('/weekly', '/haftalik'):
-        week_start = business_date - timedelta(
-            days=business_date.weekday()
-        )
+        week_start = business_date - timedelta(days=6)
 
         return period_report_message(
             session,
             week_start,
             business_date,
-            "📊 HAFTALIK HISOBOT",
+            "📊 HAFTALIK HISOBOT — OXIRGI 7 KUN",
         )
 
     if command in ('/monthly', '/oylik'):
