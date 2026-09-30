@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import String, cast, exists, func, select
 from sqlalchemy.dialects.postgresql import insert
 
-from app.models import (BusinessDay, DeliveryWorker, Order, OrderItem, Product, User, OrderType, PaymentStatus, PrintJob,
+from app.models import (BusinessDay, DeliveryWorker, Order, OrderItem, PriceOption, Product, User, OrderType, PaymentStatus, PrintJob,
                         PrintJobStatus, TelegramMessageType, TelegramOutbox, TelegramOutboxStatus)
 from app.services.business_day_service import get_current_business_date, business_clock
 from app.services.report_service import build_daily_report_data, DailyReportData, OrderTotals
@@ -266,8 +266,13 @@ def product_report_message(
 ):
     rows_query = (
         select(
-            Product.name,
-            func.coalesce(func.sum(OrderItem.quantity), 0).label("qty"),
+            Product.id.label("product_id"),
+            Product.name.label("product_name"),
+            PriceOption.name.label("option_name"),
+            func.coalesce(
+                func.sum(OrderItem.quantity),
+                0,
+            ).label("qty"),
         )
         .join(
             OrderItem,
@@ -281,6 +286,11 @@ def product_report_message(
             BusinessDay,
             BusinessDay.id == Order.business_day_id,
         )
+        .outerjoin(
+            PriceOption,
+            PriceOption.id
+            == OrderItem.selected_price_option_id,
+        )
         .where(
             BusinessDay.business_date >= start_date,
             BusinessDay.business_date <= end_date,
@@ -289,15 +299,14 @@ def product_report_message(
         .group_by(
             Product.id,
             Product.name,
+            PriceOption.id,
+            PriceOption.name,
         )
         .order_by(
-            func.sum(OrderItem.quantity).desc(),
             Product.name,
+            PriceOption.name,
         )
     )
-
-    if limit is not None:
-        rows_query = rows_query.limit(limit)
 
     rows = session.execute(rows_query).all()
 
@@ -320,55 +329,46 @@ def product_report_message(
         lines.append("Sotilgan mahsulot yo‘q.")
         return "\n".join(lines)
 
-    for index, row in enumerate(rows, 1):
-        qty = _format_product_qty(row.qty)
+    grouped = {}
 
-        if limit is None:
-            lines.append(
-                f"{row.name} — {qty} ta"
-            )
-        else:
-            lines.append(
-                f"{index}. {row.name} — {qty} ta"
-            )
+    for row in rows:
+        product = grouped.setdefault(
+            row.product_name,
+            [],
+        )
 
-    return "\n".join(lines)
+        product.append(
+            (
+                row.option_name,
+                row.qty,
+            )
+        )
+
+    for product_name, variants in grouped.items():
+        lines.append(product_name)
+
+        for option_name, qty_value in variants:
+            qty = _format_product_qty(qty_value)
+
+            if option_name:
+                lines.append(
+                    f"• {option_name} — {qty} ta"
+                )
+            else:
+                lines.append(
+                    f"• {qty} ta"
+                )
+
+        lines.append("")
+
+    return "\n".join(lines).rstrip()
+
 
 def command_reply(session, command, now=None, args=None):
     help_text = (
-        "🤖 Komronbek Zig'ir oshi — boshqaruv boti\n\n"
-
-        "📊 HISOBOTLAR\n"
-        "/bugun — bugungi to‘liq hisobot\n"
-        "/kecha — kechagi kun hisoboti\n"
-        "/kunlik — joriy kun hisoboti\n"
-        "/haftalik — joriy hafta hisoboti\n"
-        "/oylik — joriy oy hisoboti\n\n"
-
-        "📅 TARIXIY HISOBOTLAR\n"
-        "/kun DD.MM.YYYY — tanlangan kun\n"
-        "/hafta DD.MM.YYYY — tanlangan hafta\n"
-        "/oy MM.YYYY — tanlangan oy\n\n"
-
-        "🧾 BUYURTMALAR\n"
-        "/buyurtmalar — oxirgi buyurtmalar\n"
-        "/kutilayotgan — kutilayotgan buyurtmalar\n"
-        "/bekor — bekor qilingan buyurtmalar\n\n"
-
-        "🚚 YETKAZIB BERISH\n"
-        "/yetkazish — bugungi yetkazib berish hisoboti\n"
-        "/yetkazuvchilar — yetkazib beruvchilar kesimi\n\n"
-
-        "👥 SAVDO TAHLILI\n"
-        "/kassirlar — kassirlar kesimi\n"
-        "/topmahsulotlar — bugungi TOP mahsulotlar\n"
-        "/mahsulotlar kunlik — bugungi mahsulotlar soni\n"
-        "/mahsulotlar haftalik — oxirgi 7 kun\n"
-        "/mahsulotlar oylik — joriy oy\n\n"
-
-        "⚙️ TIZIM\n"
-        "/holat — server va Telegram holati\n"
-        "/yordam — buyruqlar ro‘yxati"
+        "🤖 Komronbek Zig'ir oshi\n\n"
+        "Kerakli hisobotni pastdagi "
+        "tugmalardan tanlang."
     )
 
     if command in ('/start', '/help', '/boshlash', '/yordam'):
@@ -415,11 +415,10 @@ def command_reply(session, command, now=None, args=None):
         )
 
     if command in ('/products', '/mahsulotlar'):
-        period = (
-            args[0].lower()
-            if args
-            else "kunlik"
-        )
+        if not args:
+            return "📦 Mahsulotlar davrini tanlang:"
+
+        period = args[0].lower()
 
         if period in ("kunlik", "daily", "bugun"):
             start_date = business_date

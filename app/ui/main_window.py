@@ -779,6 +779,17 @@ class PosMainWindow(QMainWindow):
             self.cart.replace(row, edited)
             self.cart_widget.render(self.cart)
 
+    def _reset_delivery_worker(self) -> None:
+        self.selected_delivery_worker_id = None
+
+        self.delivery_worker_combo.blockSignals(True)
+        self.delivery_worker_combo.setCurrentIndex(0)
+        self.delivery_worker_combo.blockSignals(False)
+
+        self.delivery_worker_summary.hide()
+        self.delivery_container.hide()
+        self._render_delivery_workers()
+
     def _set_order_type(self, order_type: str) -> None:
         if order_type == "DELIVERY":
             if self.selected_delivery_worker_id is None:
@@ -790,16 +801,9 @@ class PosMainWindow(QMainWindow):
                 self._collapse_delivery_workers()
             return
 
-        # CHAYKHANA: delivery UI disappears completely.
-        self.selected_delivery_worker_id = None
-
-        self.delivery_worker_combo.blockSignals(True)
-        self.delivery_worker_combo.setCurrentIndex(0)
-        self.delivery_worker_combo.blockSignals(False)
-
-        self.delivery_container.hide()
-        self.delivery_worker_summary.hide()
-        self._render_delivery_workers()
+        # CHAYKHANA: delivery selection must never leak
+        # into the next order.
+        self._reset_delivery_worker()
 
     def _order_type(self) -> str:
         return "DELIVERY" if self.delivery_button.isChecked() else "CHAYKHANA"
@@ -815,8 +819,27 @@ class PosMainWindow(QMainWindow):
     def _clear_cart(self) -> None:
         if self.current_order is not None:
             return
+
+        if not self.cart.items:
+            return
+
+        answer = QMessageBox.question(
+            self,
+            "Savatni tozalash",
+            "Savatdagi barcha mahsulotlar o‘chirilsinmi?",
+            QMessageBox.StandardButton.Yes
+            | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
         self.cart.clear()
         self.cart_widget.render(self.cart)
+
+        if self._order_type() == "DELIVERY":
+            self._reset_delivery_worker()
 
     def _set_editable(self, editable: bool) -> None:
         for button in (self.cart_widget.minus_button, self.cart_widget.plus_button, self.cart_widget.edit_button):
@@ -842,11 +865,26 @@ class PosMainWindow(QMainWindow):
     def _save_order(self) -> None:
         if self.current_order is not None:
             return
+
+        if (
+            self._order_type() == "DELIVERY"
+            and self.selected_delivery_worker_id is None
+        ):
+            QMessageBox.warning(
+                self,
+                "Yetkazib beruvchi",
+                "Yetkazib beruvchini tanlang.",
+            )
+            self.delivery_worker_summary.hide()
+            self.delivery_container.show()
+            return
+
         worker_id = (
             self.selected_delivery_worker_id
             if self._order_type() == "DELIVERY"
             else None
         )
+
         try:
             payload = self.cart.order_payload(self._order_type(), worker_id)
             self.current_order = self.client.create_order(payload)

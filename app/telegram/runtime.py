@@ -31,27 +31,96 @@ def valid_configuration(settings):
                 r'(?:[01][0-9]|2[0-3]):[0-5][0-9]', settings.TELEGRAM_DAILY_REPORT_TIME))))
 
 
-def handle_update(session, update, configured_chat_id):
-    message = update.get('message', {})
-    chat = message.get('chat', {})
-    # Group chats are intentionally excluded: a configured group does not make
-    # every member an administrator. Use the administrator's private chat ID.
-    if str(chat.get('id')) != configured_chat_id or chat.get('type') != 'private':
+def handle_update(
+    session,
+    update,
+    configured_chat_id,
+):
+    message = update.get("message", {})
+    chat = message.get("chat", {})
+
+    if (
+        str(chat.get("id")) != configured_chat_id
+        or chat.get("type") != "private"
+    ):
         return False
-    text = message.get('text', '')
-    if not isinstance(text, str) or not text.startswith('/'):
+
+    text = message.get("text", "")
+
+    if not isinstance(text, str):
         return False
-    parts = text.strip().split()
-    command = parts[0].split('@')[0].lower()
-    args = parts[1:]
+
+    text = text.strip()
+
+    button_commands = {
+        "📅 Kecha": ("/kecha", []),
+        "📊 Bugun": ("/bugun", []),
+        "📆 Kunlik": ("/kunlik", []),
+        "📆 Haftalik": ("/haftalik", []),
+        "🗓 Oylik": ("/oylik", []),
+        "🚚 Yetkazuvchilar": (
+            "/yetkazuvchilar",
+            [],
+        ),
+        "👤 Kassirlar": (
+            "/kassirlar",
+            [],
+        ),
+        "📦 Mahsulotlar": (
+            "/mahsulotlar",
+            [],
+        ),
+        "📦 Mahsulotlar — kunlik": (
+            "/mahsulotlar",
+            ["kunlik"],
+        ),
+        "📦 Mahsulotlar — haftalik": (
+            "/mahsulotlar",
+            ["haftalik"],
+        ),
+        "📦 Mahsulotlar — oylik": (
+            "/mahsulotlar",
+            ["oylik"],
+        ),
+        "⬅️ Asosiy menyu": (
+            "/start",
+            [],
+        ),
+    }
+
+    mapped = button_commands.get(text)
+
+    if mapped is not None:
+        command, args = mapped
+
+    elif text.startswith("/"):
+        parts = text.split()
+
+        command = (
+            parts[0]
+            .split("@")[0]
+            .lower()
+        )
+
+        args = parts[1:]
+
+    else:
+        return False
 
     enqueue(
         session,
-        f'bot:{configured_chat_id}:{update["update_id"]}',
+        f'bot:{configured_chat_id}:'
+        f'{update["update_id"]}',
         TelegramMessageType.BOT_REPLY,
-        command_reply(session, command, args=args),
+        command_reply(
+            session,
+            command,
+            args=args,
+        ),
     )
+
     return True
+
 
 
 class TelegramRuntime:

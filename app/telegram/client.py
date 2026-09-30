@@ -25,23 +25,60 @@ for logger_name in ('httpx', 'httpcore', 'httpcore.http11', 'httpcore.connection
 
 
 BOT_COMMANDS = [
-    {"command": "boshlash", "description": "Botni ishga tushirish"},
-    {"command": "yordam", "description": "Barcha buyruqlar ro'yxati"},
-    {"command": "holat", "description": "Server va Telegram holati"},
-    {"command": "bugun", "description": "Bugungi umumiy hisobot"},
-    {"command": "kecha", "description": "Kechagi kun hisoboti"},
-    {"command": "kunlik", "description": "Joriy kun hisoboti"},
-    {"command": "haftalik", "description": "Joriy hafta hisoboti"},
-    {"command": "oylik", "description": "Joriy oy hisoboti"},
-    {"command": "buyurtmalar", "description": "Oxirgi buyurtmalar"},
-    {"command": "kutilayotgan", "description": "Kutilayotgan buyurtmalar"},
-    {"command": "bekor", "description": "Bekor qilingan buyurtmalar"},
-    {"command": "yetkazish", "description": "Yetkazib berish hisoboti"},
-    {"command": "yetkazuvchilar", "description": "Yetkazib beruvchilar hisoboti"},
-    {"command": "kassirlar", "description": "Kassirlar bo'yicha savdo"},
-    {"command": "topmahsulotlar", "description": "Bugungi TOP mahsulotlar"},
-    {"command": "mahsulotlar", "description": "Mahsulotlar kunlik haftalik oylik"},
+    {"command": "bugun", "description": "Bugungi hisobot"},
+    {"command": "kecha", "description": "Kechagi hisobot"},
+    {"command": "kunlik", "description": "Joriy kun"},
+    {"command": "haftalik", "description": "Oxirgi 7 kun"},
+    {"command": "oylik", "description": "Joriy oy"},
+    {"command": "yetkazuvchilar", "description": "Yetkazib beruvchilar"},
+    {"command": "kassirlar", "description": "Kassirlar"},
+    {"command": "mahsulotlar", "description": "Mahsulotlar"},
 ]
+
+
+MAIN_KEYBOARD = {
+    "keyboard": [
+        [
+            {"text": "📅 Kecha"},
+            {"text": "📊 Bugun"},
+        ],
+        [
+            {"text": "📆 Kunlik"},
+            {"text": "📆 Haftalik"},
+        ],
+        [
+            {"text": "🗓 Oylik"},
+            {"text": "🚚 Yetkazuvchilar"},
+        ],
+        [
+            {"text": "👤 Kassirlar"},
+            {"text": "📦 Mahsulotlar"},
+        ],
+    ],
+    "resize_keyboard": True,
+    "is_persistent": True,
+}
+
+
+PRODUCT_KEYBOARD = {
+    "keyboard": [
+        [
+            {"text": "📦 Mahsulotlar — kunlik"},
+        ],
+        [
+            {"text": "📦 Mahsulotlar — haftalik"},
+        ],
+        [
+            {"text": "📦 Mahsulotlar — oylik"},
+        ],
+        [
+            {"text": "⬅️ Asosiy menyu"},
+        ],
+    ],
+    "resize_keyboard": True,
+    "is_persistent": True,
+}
+
 
 
 class TelegramClient(Protocol):
@@ -67,7 +104,20 @@ class TelegramBotClient:
         # multi-part delivery on retries. Long reports retain totals at the top.
         if len(text.encode('utf-16-le')) // 2 > 4000:
             text = text.encode('utf-16-le')[:7800].decode('utf-16-le', errors='ignore') + '\n… Hisobot qisqartirildi.'
-        self._request("sendMessage", {"chat_id": chat_id, "text": text})
+        reply_markup = (
+            PRODUCT_KEYBOARD
+            if text.strip() == "📦 Mahsulotlar davrini tanlang:"
+            else MAIN_KEYBOARD
+        )
+
+        self._request(
+            "sendMessage",
+            {
+                "chat_id": chat_id,
+                "text": text,
+                "reply_markup": reply_markup,
+            },
+        )
 
     def set_commands(self) -> None:
         self._request(

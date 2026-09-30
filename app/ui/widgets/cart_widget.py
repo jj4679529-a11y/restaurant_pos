@@ -35,6 +35,13 @@ class CartWidget(QWidget):
         header.addWidget(title)
         header.addStretch()
 
+        self.remove_button = QPushButton("OLIB TASHLASH")
+        self.remove_button.setObjectName("cartRemoveButton")
+        self.remove_button.setMinimumHeight(36)
+        self.remove_button.setMaximumHeight(36)
+        self.remove_button.setMinimumWidth(110)
+        self.remove_button.setEnabled(False)
+
         self.clear_button = QPushButton("TOZALASH")
         self.clear_button.setObjectName("cartClearButton")
         self.clear_button.setMinimumHeight(36)
@@ -42,6 +49,7 @@ class CartWidget(QWidget):
         self.clear_button.setMinimumWidth(82)
         self.clear_button.setMaximumWidth(100)
 
+        header.addWidget(self.remove_button)
         header.addWidget(self.clear_button)
 
         layout.addLayout(header)
@@ -60,7 +68,7 @@ class CartWidget(QWidget):
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
         self.items.setSelectionMode(
-            QAbstractItemView.SelectionMode.NoSelection
+            QAbstractItemView.SelectionMode.SingleSelection
         )
         self.items.setFocusPolicy(
             Qt.FocusPolicy.NoFocus
@@ -98,13 +106,11 @@ class CartWidget(QWidget):
         self.minus_button = QPushButton("−")
         self.plus_button = QPushButton("+")
         self.edit_button = QPushButton("Tahrirlash")
-        self.remove_button = QPushButton("Tanlanganni o‘chirish")
 
         for button in (
             self.minus_button,
             self.plus_button,
             self.edit_button,
-            self.remove_button,
         ):
             button.setParent(self)
             button.hide()
@@ -115,6 +121,8 @@ class CartWidget(QWidget):
         layout.addWidget(self.total_label)
 
     def _selection(self, selected):
+        self.remove_button.setEnabled(selected >= 0)
+
         for index in range(self.items.count()):
             card = self.items.itemWidget(
                 self.items.item(index)
@@ -147,6 +155,7 @@ class CartWidget(QWidget):
 
     def render(self, cart: Cart) -> None:
         self.items.clear()
+        self.remove_button.setEnabled(False)
         self.empty.setVisible(not cart.items)
 
         for index, item in enumerate(cart.items):
