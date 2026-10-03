@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.models import Setting, TelegramMessageType
 from app.services.telegram_outbox_service import process_pending_messages
 from app.telegram.client import TelegramBotClient
-from app.telegram.events import collect_committed_events, command_reply, enqueue, schedule_report
+from app.telegram.events import collect_committed_events, command_reply, enqueue
 
 log = logging.getLogger(__name__)
 LEADER_NAMESPACE = 7002
@@ -150,8 +150,10 @@ class TelegramRuntime:
 
     def cycle(self):
         with self.factory.begin() as session:
-            collect_committed_events(session, self.settings.TELEGRAM_OUTBOX_BATCH_SIZE)
-            schedule_report(session, self.settings.TELEGRAM_DAILY_REPORT_TIME)
+            collect_committed_events(
+                session,
+                self.settings.TELEGRAM_OUTBOX_BATCH_SIZE,
+            )
         process_pending_messages(self.factory, self.client, admin_chat_id(self.settings),
                                  self.settings.TELEGRAM_OUTBOX_BATCH_SIZE, self.stop_event.is_set)
         if self.stop_event.is_set():

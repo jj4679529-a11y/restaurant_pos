@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -96,36 +96,310 @@ def _now(now: datetime | None = None, session=None) -> datetime:
     return now.astimezone(timezone)
 
 
-def get_current_business_date(now: datetime | None = None, session=None) -> date:
+def _clock_business_date(
+    now: datetime | None = None,
+    session=None,
+) -> date:
+    """Legacy clock calculation used only when no manual OPEN day exists."""
     local_now = _now(now, session)
     _, boundary = business_clock(session)
-    return local_now.date() if local_now.timetz().replace(tzinfo=None) >= boundary else local_now.date() - timedelta(days=1)
+
+    if (
+        local_now.timetz().replace(tzinfo=None)
+        >= boundary
+    ):
+        return local_now.date()
+
+    return local_now.date() - timedelta(days=1)
 
 
-def get_or_create_current_business_day(session: Session, now: datetime | None = None) -> BusinessDay:
-    business_date = get_current_business_date(now, session)
-    current = session.scalars(select(BusinessDay).where(BusinessDay.business_date == business_date)).one_or_none()
-    if current is not None:
-        return current
-
+def _latest_open_business_day(
+    session: Session,
+    now: datetime | None = None,
+    *,
+    lock: bool = False,
+) -> BusinessDay | None:
     local_now = _now(now, session)
-    timezone, boundary = business_clock(session)
-    started_at = datetime.combine(business_date, boundary, tzinfo=timezone)
-    day = BusinessDay(business_date=business_date, started_at=started_at, status=BusinessDayStatus.OPEN)
+
+    query = (
+        select(BusinessDay)
+        .where(
+            BusinessDay.status
+            == BusinessDayStatus.OPEN,
+            BusinessDay.started_at <= local_now,
+        )
+        .order_by(
+            BusinessDay.started_at.desc(),
+            BusinessDay.id.desc(),
+        )
+    )
+
+    if lock:
+        query = query.with_for_update()
+
+    return session.scalars(query).first()
+
+
+def _get_or_create_day_for_date(
+    session: Session,
+    business_date: date,
+    started_at: datetime,
+) -> BusinessDay:
+    day = session.scalars(
+        select(BusinessDay).where(
+            BusinessDay.business_date
+            == business_date
+        )
+    ).one_or_none()
+
+    if day is not None:
+        return day
+
+    day = BusinessDay(
+        business_date=business_date,
+        started_at=started_at,
+        status=BusinessDayStatus.OPEN,
+    )
+
     try:
         with session.begin_nested():
             session.add(day)
             session.flush()
     except IntegrityError:
-        day = session.scalars(select(BusinessDay).where(BusinessDay.business_date == business_date)).one()
+        day = session.scalars(
+            select(BusinessDay).where(
+                BusinessDay.business_date
+                == business_date
+            )
+        ).one()
+
     return day
 
 
-def ensure_open_business_day(session: Session, now: datetime | None = None) -> BusinessDay:
-    day = get_or_create_current_business_day(session, now)
+def get_current_business_date(
+    now: datetime | None = None,
+    session=None,
+) -> date:
+    # Explicit datetime is used by legacy/tests/tools and must keep
+    # the configured clock-boundary semantics.
+    if now is not None:
+        return _clock_business_date(
+            now,
+            session,
+        )
+
+    # Normal production mode is manual:
+    # the currently OPEN BusinessDay stays active until Admin closes it.
+    if session is not None:
+        active = _latest_open_business_day(
+            session,
+        )
+
+        if active is not None:
+            return active.business_date
+
+    return _clock_business_date(
+        None,
+        session,
+    )
+
+
+def get_or_create_current_business_day(
+    session: Session,
+    now: datetime | None = None,
+) -> BusinessDay:
+    # Explicit time -> legacy deterministic behaviour.
+    if now is not None:
+        local_now = _now(
+            now,
+            session,
+        )
+
+        business_date = _clock_business_date(
+            local_now,
+            session,
+        )
+
+        return _get_or_create_day_for_date(
+            session,
+            business_date,
+            local_now,
+        )
+
+    # Production/manual mode.
+    active = _latest_open_business_day(
+        session,
+    )
+
+    if active is not None:
+        return active
+
+    local_now = _now(
+        None,
+        session,
+    )
+
+    business_date = _clock_business_date(
+        local_now,
+        session,
+    )
+
+    existing = session.scalars(
+        select(BusinessDay).where(
+            BusinessDay.business_date
+            == business_date
+        )
+    ).one_or_none()
+
+    if (
+        existing is not None
+        and existing.status
+        is BusinessDayStatus.OPEN
+    ):
+        return existing
+
+    if existing is not None:
+        business_date = (
+            existing.business_date
+            + timedelta(days=1)
+        )
+
+        while session.scalar(
+            select(BusinessDay.id).where(
+                BusinessDay.business_date
+                == business_date
+            )
+        ) is not None:
+            business_date += timedelta(days=1)
+
+    return _get_or_create_day_for_date(
+        session,
+        business_date,
+        local_now,
+    )
+
+
+def ensure_open_business_day(
+    session: Session,
+    now: datetime | None = None,
+) -> BusinessDay:
+    day = get_or_create_current_business_day(
+        session,
+        now,
+    )
+
     if day.status is not BusinessDayStatus.OPEN:
-        raise ServiceError(409, "business_day_closed", "The current business day is closed")
+        raise ServiceError(
+            409,
+            "business_day_closed",
+            "The current business day is closed",
+        )
+
     return day
+
+
+@dataclass(frozen=True)
+class CloseAndStartBusinessDayResult:
+    closed_day: BusinessDay
+    new_day: BusinessDay
+    report: DailyReportData
+
+
+def close_and_start_business_day(
+    session: Session,
+    now: datetime | None = None,
+    created_by: int = 0,
+    printer_id: int | None = None,
+) -> CloseAndStartBusinessDayResult:
+    """Admin manually closes OPEN day and immediately starts the next one."""
+
+    local_now = _now(
+        now,
+        session,
+    )
+
+    day = _latest_open_business_day(
+        session,
+        local_now,
+        lock=True,
+    )
+
+    if day is None:
+        day = get_or_create_current_business_day(
+            session,
+            local_now,
+        )
+
+        # Lock the row we just resolved.
+        day = session.scalars(
+            select(BusinessDay)
+            .where(
+                BusinessDay.id == day.id
+            )
+            .with_for_update()
+        ).one()
+
+    report = build_daily_report_data(
+        session,
+        day,
+    )
+
+    day.status = BusinessDayStatus.CLOSED
+    day.closed_at = local_now
+
+    save_daily_report_snapshot(
+        session,
+        day,
+        report,
+        printer_id,
+        created_by,
+    )
+
+    session.add(
+        TelegramOutbox(
+            message_type=(
+                TelegramMessageType.DAILY_REPORT
+            ),
+            order_id=None,
+            message_text=(
+                build_daily_report_message(
+                    report
+                )
+            ),
+            status=(
+                TelegramOutboxStatus.PENDING
+            ),
+            attempts=0,
+        )
+    )
+
+    next_date = (
+        day.business_date
+        + timedelta(days=1)
+    )
+
+    while session.scalar(
+        select(BusinessDay.id).where(
+            BusinessDay.business_date
+            == next_date
+        )
+    ) is not None:
+        next_date += timedelta(days=1)
+
+    new_day = BusinessDay(
+        business_date=next_date,
+        started_at=local_now,
+        status=BusinessDayStatus.OPEN,
+    )
+
+    session.add(new_day)
+    session.flush()
+
+    return CloseAndStartBusinessDayResult(
+        closed_day=day,
+        new_day=new_day,
+        report=report,
+    )
 
 
 def close_previous_business_day(
@@ -151,8 +425,28 @@ def close_previous_business_day(
             "The previous business day can be closed at or after 06:00 Asia/Tashkent",
         )
 
-    current_day = ensure_open_business_day(session, local_now)
-    previous_date = current_day.business_date - timedelta(days=1)
+    current_date = _clock_business_date(
+        local_now,
+        session,
+    )
+
+    current_day = _get_or_create_day_for_date(
+        session,
+        current_date,
+        local_now,
+    )
+
+    if current_day.status is not BusinessDayStatus.OPEN:
+        raise ServiceError(
+            409,
+            "business_day_closed",
+            "The current business day is closed",
+        )
+
+    previous_date = (
+        current_date
+        - timedelta(days=1)
+    )
     previous_day = session.scalars(
         select(BusinessDay)
         .where(BusinessDay.business_date == previous_date)

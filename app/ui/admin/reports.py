@@ -173,6 +173,19 @@ class ReportsPage(QWidget):
         header.addLayout(title_box)
         header.addStretch()
 
+        self.close_day_button = QPushButton(
+            "ISH KUNINI TUGATISH"
+        )
+        self.close_day_button.setMinimumHeight(54)
+        self.close_day_button.setMinimumWidth(220)
+        self.close_day_button.clicked.connect(
+            self.close_business_day
+        )
+
+        header.addWidget(
+            self.close_day_button
+        )
+
         root.addLayout(header)
 
         # Filters
@@ -726,6 +739,63 @@ class ReportsPage(QWidget):
             self,
         )
         dialog.exec()
+
+    def close_business_day(self):
+        from PySide6.QtWidgets import QMessageBox
+
+        answer = QMessageBox.question(
+            self,
+            "Ish kunini tugatish",
+            (
+                "Joriy ish kuni tugatilsinmi?\n\n"
+                "Yakuniy hisobot Telegramga yuboriladi "
+                "va yangi ish kuni darhol boshlanadi."
+            ),
+            QMessageBox.StandardButton.Yes
+            | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        self.close_day_button.setEnabled(False)
+
+        try:
+            result = self.client.request(
+                "POST",
+                "/api/admin/reports/close-day",
+                {},
+            )
+
+            closed_date = result.get(
+                "closed_business_date",
+                "",
+            )
+            new_date = result.get(
+                "new_business_date",
+                "",
+            )
+
+            QMessageBox.information(
+                self,
+                "Ish kuni tugatildi",
+                (
+                    f"Ish kuni {closed_date} tugatildi.\n"
+                    f"Yangi ish kuni: {new_date}.\n\n"
+                    "Yakuniy hisobot Telegramga yuborildi."
+                ),
+            )
+
+            self.load()
+            self.load_history()
+
+        except Exception as error:
+            self.on_error(error)
+
+        finally:
+            self.close_day_button.setEnabled(True)
+
 
     def load_history(self):
         try:

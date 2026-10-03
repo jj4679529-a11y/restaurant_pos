@@ -6,8 +6,15 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import (
-    Order, Payment, PaymentStatus, TelegramMessageType, TelegramOutbox,
-    TelegramOutboxStatus, User,
+    Order,
+    OrderItem,
+    OrderItemAddOn,
+    Payment,
+    PaymentStatus,
+    TelegramMessageType,
+    TelegramOutbox,
+    TelegramOutboxStatus,
+    User,
 )
 from app.services.errors import ServiceError
 from app.telegram.message_builder import build_paid_order_message
@@ -32,7 +39,18 @@ def _locked_order(session: Session, order_id: int) -> Order:
     order = session.scalars(
         select(Order)
         .where(Order.id == order_id)
-        .options(selectinload(Order.delivery_worker))
+        .options(
+            selectinload(Order.delivery_worker),
+            selectinload(Order.items).selectinload(
+                OrderItem.product
+            ),
+            selectinload(Order.items).selectinload(
+                OrderItem.selected_price_option
+            ),
+            selectinload(Order.items)
+            .selectinload(OrderItem.addons)
+            .selectinload(OrderItemAddOn.addon),
+        )
         .with_for_update()
     ).one_or_none()
     if order is None:

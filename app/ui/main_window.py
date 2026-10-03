@@ -201,8 +201,11 @@ class PosMainWindow(QMainWindow):
         delivery_layout.setContentsMargins(0, 0, 0, 0)
         delivery_layout.setSpacing(6)
 
-        delivery_label = QLabel("Yetkazib beruvchini tanlang:")
-        delivery_label.setObjectName("sectionTitle")
+        delivery_label = QLabel("Yetkazib beruvchi:")
+        delivery_label.setObjectName("deliveryWorkerLabel")
+        delivery_label.setStyleSheet(
+            "font-size: 16px; font-weight: 700;"
+        )
         delivery_layout.addWidget(delivery_label)
 
         self.delivery_worker_scroll = QScrollArea()
@@ -213,8 +216,8 @@ class PosMainWindow(QMainWindow):
         self.delivery_worker_scroll.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAsNeeded
         )
-        self.delivery_worker_scroll.setMinimumHeight(72)
-        self.delivery_worker_scroll.setMaximumHeight(170)
+        self.delivery_worker_scroll.setMinimumHeight(54)
+        self.delivery_worker_scroll.setMaximumHeight(105)
 
         QScroller.grabGesture(
             self.delivery_worker_scroll.viewport(),
@@ -894,11 +897,44 @@ class PosMainWindow(QMainWindow):
         except Exception as error:
             self._handle_api_error(error, "Buyurtma saqlanmadi")
             return
+        # Delivery order is stored as PENDING, then cashier immediately
+        # returns to a clean CHAYKHANA draft. The saved delivery order remains
+        # available under SAQLANGANLAR for later payment/printing.
+        if self._order_type() == "DELIVERY":
+            saved_number = self.current_order["order_number"]
+
+            self.current_order = None
+            self.payment_uncertain = False
+
+            self.cart.clear()
+            self.cart_widget.render(self.cart)
+
+            self.chaykhana_button.setChecked(True)
+            self.delivery_button.setChecked(False)
+            self._set_order_type("CHAYKHANA")
+
+            self.fresh_order_button.setChecked(True)
+            self.saved_orders_button.setChecked(False)
+
+            self._set_editable(True)
+            self._sync_actions()
+
+            self.status_label.setText(
+                f"Yetkazib berish #{saved_number} saqlandi. "
+                "Yangi Choyxona buyurtmasi."
+            )
+            return
+
         self._set_editable(False)
-        self.cart_widget.total_label.setText(f"JAMI: {format_money(self.current_order['total_amount'])}")
-        self.checkout_button.setEnabled(self.current_order.get("payment_status") == "PENDING")
+        self.cart_widget.total_label.setText(
+            f"JAMI: {format_money(self.current_order['total_amount'])}"
+        )
+        self.checkout_button.setEnabled(
+            self.current_order.get("payment_status") == "PENDING"
+        )
         self.status_label.setText(
-            f"Buyurtma #{self.current_order['order_number']} saqlandi. To‘lov kutilmoqda."
+            f"Buyurtma #{self.current_order['order_number']} "
+            "saqlandi. To‘lov kutilmoqda."
         )
 
     def _checkout(self) -> None:

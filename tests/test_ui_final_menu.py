@@ -192,25 +192,42 @@ def window(qt_app, monkeypatch):
 
 
 def test_no_order_until_save_delivery_required_and_saved_cart_locked(window):
-    product = {"id": 510, "name": "Non", "base_price": 6000}
+    product = {
+        "id": 510,
+        "name": "Non",
+        "base_price": 6000,
+    }
+
     window._add_product(product)
     window.cart_widget.items.setCurrentRow(0)
     window._change_cart_quantity(1)
+
     window.client.create_order.assert_not_called()
+
     window.delivery_button.click()
     window._save_order()
+
+    # Delivery worker is mandatory.
     window.client.create_order.assert_not_called()
+
     window.delivery_worker_combo.setCurrentIndex(1)
     window._save_order()
-    payload = window.client.create_order.call_args.args[0]
-    assert payload["delivery_worker_id"] == 99 and payload["order_type"] == "DELIVERY"
-    assert payload["items"][0]["quantity"] == "2.000"
-    assert window.current_order["payment_status"] == "PENDING"
-    window._change_cart_quantity(1)
-    window._remove_selected_cart_item()
-    assert window.cart.items[0].quantity == 2
-    assert not window.save_button.isEnabled()
 
+    payload = window.client.create_order.call_args.args[0]
+
+    assert payload["delivery_worker_id"] == 99
+    assert payload["order_type"] == "DELIVERY"
+    assert payload["items"][0]["quantity"] == "2.000"
+
+    # New UX:
+    # saved delivery remains PENDING on server, but cashier immediately
+    # receives a fresh CHAYKHANA draft.
+    assert window.current_order is None
+    assert window.cart.items == []
+    assert window.chaykhana_button.isChecked()
+    assert not window.delivery_button.isChecked()
+    assert window.selected_delivery_worker_id is None
+    assert window.save_button.isEnabled()
 
 def test_gui_print_failure_retains_paid_and_retry_never_repays(window):
     window._add_product({"id": 510, "name": "Non", "base_price": 12000})

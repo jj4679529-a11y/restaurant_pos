@@ -29,20 +29,92 @@ def _date_time_lines(value: datetime | None = None) -> list[str]:
     ]
 
 
-def build_paid_order_message(order: Order, cashier_name: str = "Noma’lum") -> str:
+def _format_quantity(value) -> str:
+    text = str(value)
+
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+
+    return text
+
+
+def _order_item_lines(order: Order) -> list[str]:
+    lines = []
+
+    for item in order.items:
+        qty = _format_quantity(item.quantity)
+        name = item.product.name
+
+        if item.selected_price_option is not None:
+            name += f" — {item.selected_price_option.name}"
+
+        if item.quantity != 1:
+            name += f" × {qty}"
+
+        lines.append(
+            f"• {name} — {_format_money(item.total_price)}"
+        )
+
+        for addon_row in item.addons:
+            addon_qty = _format_quantity(
+                addon_row.quantity
+            )
+
+            addon_name = addon_row.addon.name
+
+            if addon_row.quantity != 1:
+                addon_name += f" × {addon_qty}"
+
+            lines.append(
+                f"   + {addon_name} — "
+                f"{_format_money(addon_row.total_price)}"
+            )
+
+    return lines
+
+
+def build_paid_order_message(
+    order: Order,
+    cashier_name: str = "Noma’lum",
+) -> str:
     paid_at = order.paid_at or datetime.now(TASHKENT)
 
     lines = [
-        "✅ TO'LOV QABUL QILINDI",
+        "✅ TO‘LOV QABUL QILINDI",
         "",
         f"Buyurtma: #{order.order_number}",
         f"Kassir: {cashier_name}",
-        f"Turi: {'Choyxona' if order.order_type is OrderType.CHAYKHANA else 'Yetkazib berish'}",
-        f"Jami: {_format_money(order.total_amount)}",
-        *_date_time_lines(paid_at),
+        (
+            "Turi: Choyxona"
+            if order.order_type is OrderType.CHAYKHANA
+            else "Turi: Yetkazib berish"
+        ),
     ]
-    if order.order_type is OrderType.DELIVERY and order.delivery_worker is not None:
-        lines.append(f"Yetkazib beruvchi: {order.delivery_worker.name}")
+
+    if (
+        order.order_type is OrderType.DELIVERY
+        and order.delivery_worker is not None
+    ):
+        lines.append(
+            f"Yetkazib beruvchi: "
+            f"{order.delivery_worker.name}"
+        )
+
+    lines.extend([
+        "",
+        "🧾 BUYURTMA TARKIBI",
+    ])
+
+    lines.extend(
+        _order_item_lines(order)
+    )
+
+    lines.extend([
+        "",
+        f"JAMI: {_format_money(order.total_amount)}",
+        *_date_time_lines(paid_at),
+    ])
+
     return "\n".join(lines)
 
 

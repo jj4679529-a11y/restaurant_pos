@@ -7,9 +7,37 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import AdminUser, DbSession
 from app.models import BusinessDay, Category, Product, Order, OrderItem, Payment, PaymentStatus, User, DeliveryWorker, OrderType, DailyReport
-from app.services.business_day_service import get_current_business_date, get_daily_report_history
+from app.services.business_day_service import (
+    close_and_start_business_day,
+    get_current_business_date,
+    get_daily_report_history,
+)
 
 router = APIRouter(prefix='/admin/reports', tags=['reports'])
+
+
+@router.post('/close-day')
+def close_day(
+    db: DbSession,
+    admin: AdminUser,
+):
+    result = close_and_start_business_day(
+        db,
+        created_by=admin.id,
+    )
+
+    db.commit()
+
+    return {
+        "closed_business_date":
+            result.closed_day.business_date,
+        "new_business_date":
+            result.new_day.business_date,
+        "paid_order_count":
+            result.report.overall.count,
+        "total_paid_amount":
+            result.report.overall.amount,
+    }
 
 
 @router.get('/daily')

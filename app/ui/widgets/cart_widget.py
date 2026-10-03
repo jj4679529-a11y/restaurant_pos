@@ -36,7 +36,7 @@ class CartWidget(QWidget):
         header.addStretch()
 
         self.remove_button = QPushButton("OLIB TASHLASH")
-        self.remove_button.setObjectName("cartRemoveButton")
+        self.remove_button.setObjectName("cartClearButton")
         self.remove_button.setMinimumHeight(36)
         self.remove_button.setMaximumHeight(36)
         self.remove_button.setMinimumWidth(110)
