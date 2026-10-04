@@ -9,6 +9,7 @@ from app.models import (
     BusinessDay,
     BusinessDayStatus,
     Order,
+    Payment,
     PaymentStatus,
     TelegramMessageType,
     TelegramOutbox,
@@ -174,6 +175,20 @@ def cancel_order(
     order.cancelled_by = actor.id
     order.canceller = actor
     order.cancel_reason = normalized_reason
+
+    # A paid order leaving the cash register must also leave the payment ledger.
+    # Keep the original Payment row for audit, but mark it CANCELLED so every
+    # report that sums PAID payments stays consistent with the physical cash.
+    if expected_status is PaymentStatus.PAID:
+        session.execute(
+            update(Payment)
+            .where(
+                Payment.order_id == order.id,
+                Payment.status == PaymentStatus.PAID,
+            )
+            .values(status=PaymentStatus.CANCELLED)
+            .execution_options(synchronize_session=False)
+        )
 
     session.add(
         TelegramOutbox(
