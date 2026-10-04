@@ -181,8 +181,8 @@ class PosMainWindow(QMainWindow):
         self.delivery_worker_summary.setObjectName(
             "deliveryWorkerSummary"
         )
-        self.delivery_worker_summary.setMinimumHeight(40)
-        self.delivery_worker_summary.setMaximumHeight(42)
+        self.delivery_worker_summary.setMinimumHeight(36)
+        self.delivery_worker_summary.setMaximumHeight(38)
         self.delivery_worker_summary.setVisible(False)
         self.delivery_worker_summary.clicked.connect(
             self._toggle_delivery_workers
@@ -197,12 +197,12 @@ class PosMainWindow(QMainWindow):
         self.delivery_container = QWidget()
         delivery_layout = QVBoxLayout(self.delivery_container)
         delivery_layout.setContentsMargins(0, 0, 0, 0)
-        delivery_layout.setSpacing(6)
+        delivery_layout.setSpacing(4)
 
         delivery_label = QLabel("Yetkazib beruvchi:")
         delivery_label.setObjectName("deliveryWorkerLabel")
         delivery_label.setStyleSheet(
-            "font-size: 16px; font-weight: 700;"
+            "font-size: 13px; font-weight: 700;"
         )
         delivery_layout.addWidget(delivery_label)
 
@@ -214,8 +214,8 @@ class PosMainWindow(QMainWindow):
         self.delivery_worker_scroll.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAsNeeded
         )
-        self.delivery_worker_scroll.setMinimumHeight(54)
-        self.delivery_worker_scroll.setMaximumHeight(105)
+        self.delivery_worker_scroll.setMinimumHeight(44)
+        self.delivery_worker_scroll.setMaximumHeight(92)
 
         QScroller.grabGesture(
             self.delivery_worker_scroll.viewport(),
@@ -227,8 +227,8 @@ class PosMainWindow(QMainWindow):
             self.delivery_worker_content
         )
         self.delivery_worker_layout.setContentsMargins(0, 0, 0, 0)
-        self.delivery_worker_layout.setHorizontalSpacing(8)
-        self.delivery_worker_layout.setVerticalSpacing(8)
+        self.delivery_worker_layout.setHorizontalSpacing(6)
+        self.delivery_worker_layout.setVerticalSpacing(6)
 
         self.delivery_worker_scroll.setWidget(
             self.delivery_worker_content
@@ -566,15 +566,17 @@ class PosMainWindow(QMainWindow):
 
         if not active_workers:
             empty = QLabel("Faol yetkazib beruvchi yo‘q")
-            self.delivery_worker_layout.addWidget(empty)
+            self.delivery_worker_layout.addWidget(empty, 0, 0, 1, 4)
             return
 
-        for worker in active_workers:
+        columns = 4
+
+        for index, worker in enumerate(active_workers):
             worker_id = int(worker["id"])
 
             button = QPushButton(str(worker["name"]).upper())
-            button.setMinimumHeight(42)
-            button.setMaximumHeight(42)
+            button.setMinimumHeight(36)
+            button.setMaximumHeight(38)
             button.setCheckable(True)
             button.setProperty("role", "category")
             button.setChecked(
@@ -587,12 +589,14 @@ class PosMainWindow(QMainWindow):
             )
 
             self.delivery_worker_buttons.append(button)
-            self.delivery_worker_layout.addWidget(button)
+            self.delivery_worker_layout.addWidget(
+                button,
+                index // columns,
+                index % columns,
+            )
 
-        self.delivery_worker_layout.setRowStretch(
-            self.delivery_worker_layout.rowCount(),
-            1,
-        )
+        for column in range(columns):
+            self.delivery_worker_layout.setColumnStretch(column, 1)
 
     def _selected_delivery_worker_name(self) -> str:
         if self.selected_delivery_worker_id is None:
