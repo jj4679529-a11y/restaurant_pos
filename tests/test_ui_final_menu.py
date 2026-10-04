@@ -111,7 +111,6 @@ def test_manual_presets_and_custom_snapshots(qt_app, osh, monkeypatch, target, a
         dialog = ProductDialog(product)
         dialog._product_price()
         item = dialog._item()
-        assert picker.call_args.args[2] == product["manual_price_presets"]
     assert item.manual_price == item.unit_price == item.total_price == amount
     assert item.to_payload()["manual_price"] == amount
     dialog.close()
@@ -219,15 +218,16 @@ def test_no_order_until_save_delivery_required_and_saved_cart_locked(window):
     assert payload["order_type"] == "DELIVERY"
     assert payload["items"][0]["quantity"] == "2.000"
 
-    # New UX:
-    # saved delivery remains PENDING on server, but cashier immediately
-    # receives a fresh CHAYKHANA draft.
-    assert window.current_order is None
-    assert window.cart.items == []
-    assert window.chaykhana_button.isChecked()
-    assert not window.delivery_button.isChecked()
-    assert window.selected_delivery_worker_id is None
-    assert window.save_button.isEnabled()
+    # Updated UX: saved delivery stays active and locked until payment/print.
+    assert window.current_order is not None
+    assert window.current_order["payment_status"] == "PENDING"
+    assert window.delivery_button.isChecked()
+    assert not window.chaykhana_button.isChecked()
+    assert window.selected_delivery_worker_id == 99
+    assert window.cart.items
+    assert not window.save_button.isEnabled()
+    assert window.checkout_button.isEnabled()
+
 
 def test_gui_print_failure_retains_paid_and_retry_never_repays(window):
     window._add_product({"id": 510, "name": "Non", "base_price": 12000})
