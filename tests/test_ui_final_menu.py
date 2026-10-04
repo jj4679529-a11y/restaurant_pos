@@ -190,6 +190,21 @@ def window(qt_app, monkeypatch):
     window.close()
 
 
+def test_delivery_worker_selector_is_compact_grid(window):
+    window.workers = [
+        {"id": index, "name": f"Worker {index}", "is_active": True}
+        for index in range(1, 7)
+    ]
+    window._render_delivery_workers()
+
+    assert len(window.delivery_worker_buttons) == 6
+    assert window.delivery_worker_layout.itemAtPosition(0, 0).widget().text() == "WORKER 1"
+    assert window.delivery_worker_layout.itemAtPosition(0, 3).widget().text() == "WORKER 4"
+    assert window.delivery_worker_layout.itemAtPosition(1, 0).widget().text() == "WORKER 5"
+    assert window.delivery_worker_scroll.maximumHeight() == 92
+    assert all(button.maximumHeight() <= 38 for button in window.delivery_worker_buttons)
+
+
 def test_no_order_until_save_delivery_required_and_saved_cart_locked(window):
     product = {
         "id": 510,
