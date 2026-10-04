@@ -273,6 +273,7 @@ def product_report_message(
                 func.sum(OrderItem.quantity),
                 0,
             ).label("qty"),
+            func.coalesce(func.sum(OrderItem.total_price), 0).label("amount"),
         )
         .join(
             OrderItem,
@@ -333,7 +334,7 @@ def product_report_message(
 
     for row in rows:
         product = grouped.setdefault(
-            row.product_name,
+            (row.product_id, row.product_name),
             [],
         )
 
@@ -341,26 +342,33 @@ def product_report_message(
             (
                 row.option_name,
                 row.qty,
+                int(row.amount),
             )
         )
 
-    for product_name, variants in grouped.items():
+    for (_, product_name), variants in grouped.items():
         lines.append(product_name)
 
-        for option_name, qty_value in variants:
+        for option_name, qty_value, amount in variants:
             qty = _format_product_qty(qty_value)
 
             if option_name:
                 lines.append(
-                    f"• {option_name} — {qty} ta"
+                    f"• {option_name} — {qty} ta / {amount:,} so‘m".replace(",", " ")
                 )
             else:
                 lines.append(
-                    f"• {qty} ta"
+                    f"• {qty} ta / {amount:,} so‘m".replace(",", " ")
                 )
 
+        if len(variants) > 1:
+            product_qty = _format_product_qty(sum(Decimal(str(v[1])) for v in variants))
+            product_amount = sum(v[2] for v in variants)
+            lines.append(f"Jami: {product_qty} ta / {product_amount:,} so‘m".replace(",", " "))
         lines.append("")
 
+    total_amount = sum(int(row.amount) for row in rows)
+    lines.append(f"Umumiy summa: {total_amount:,} so‘m".replace(",", " "))
     return "\n".join(lines).rstrip()
 
 

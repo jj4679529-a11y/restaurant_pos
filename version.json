@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "repository": "jj4679529-a11y/restaurant_pos",
   "branch": "phase-13-two-monoblock",
   "workflow": "build-windows.yml",

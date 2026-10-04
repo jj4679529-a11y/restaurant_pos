@@ -128,14 +128,14 @@ class PosMainWindow(QMainWindow):
         controls.setSpacing(8)
 
         self.fresh_order_button = QPushButton("YANGI BUYURTMA")
-        self.fresh_order_button.setMinimumHeight(58)
+        self.fresh_order_button.setFixedHeight(42)
         self.fresh_order_button.setCheckable(True)
         self.fresh_order_button.setProperty("role", "cashier-tab")
         self.fresh_order_button.setChecked(True)
         self.fresh_order_button.clicked.connect(self._new_order)
 
         self.saved_orders_button = QPushButton("SAQLANGANLAR")
-        self.saved_orders_button.setMinimumHeight(58)
+        self.saved_orders_button.setFixedHeight(42)
         self.saved_orders_button.setProperty("role", "cashier-tab")
         self.saved_orders_button.clicked.connect(self._saved_orders)
 
@@ -147,7 +147,7 @@ class PosMainWindow(QMainWindow):
             self.delivery_button,
         ):
             button.setCheckable(True)
-            button.setMinimumHeight(46)
+            button.setFixedHeight(42)
             button.setProperty("role", "order-type")
 
         self.chaykhana_button.setChecked(True)
@@ -163,13 +163,6 @@ class PosMainWindow(QMainWindow):
         self.delivery_button.clicked.connect(
             lambda: self._set_order_type("DELIVERY")
         )
-
-        refresh = QPushButton("↻")
-        refresh.setMinimumSize(44, 44)
-        refresh.setMaximumWidth(52)
-        refresh.setToolTip("Menyuni yangilash")
-        refresh.setProperty("role", "secondary")
-        refresh.clicked.connect(self.reload_catalog_async)
 
         controls.addWidget(self.fresh_order_button)
         controls.addWidget(self.saved_orders_button)
@@ -190,7 +183,6 @@ class PosMainWindow(QMainWindow):
 
         controls.addWidget(self.delivery_worker_summary)
         controls.addStretch()
-        controls.addWidget(refresh)
 
         root_layout.addLayout(controls)
 
@@ -369,7 +361,14 @@ class PosMainWindow(QMainWindow):
         self.admin_button.setMaximumHeight(40)
         self.admin_button.setProperty('role', 'secondary')
         self.admin_button.clicked.connect(lambda: self.on_admin() if self.on_admin else None)
+        self.refresh_button = QPushButton("↻ YANGILASH")
+        self.refresh_button.setObjectName("topCompactButton")
+        self.refresh_button.setFixedHeight(40)
+        self.refresh_button.setToolTip("Menyuni yangilash")
+        self.refresh_button.setProperty("role", "secondary")
+        self.refresh_button.clicked.connect(self.reload_catalog_async)
         layout.addWidget(self.admin_button)
+        layout.addWidget(self.refresh_button)
         layout.addWidget(self.user_label)
         layout.addWidget(self.clock_label)
         layout.addWidget(self.logout_button)

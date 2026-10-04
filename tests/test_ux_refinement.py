@@ -40,6 +40,8 @@ def test_cashier_geometry_actions_and_cart_lines(qt_app, theme, size):
     for _ in range(3):
         qt_app.processEvents()
     assert window.size().width() <= size[0]
+    assert window.refresh_button.mapTo(window, window.refresh_button.rect().topLeft()).y() < window.fresh_order_button.mapTo(window, window.fresh_order_button.rect().topLeft()).y()
+    assert window.fresh_order_button.height() < 58
     assert window.save_button.isVisible() and not window.checkout_button.isVisible()
     assert window.cart_widget.empty.isVisible()
     assert window.save_button.mapTo(window, window.save_button.rect().bottomRight()).y() < window.height()

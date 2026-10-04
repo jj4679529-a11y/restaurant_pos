@@ -1162,12 +1162,18 @@ QLabel#connectionStatus {
 }
 
 QPushButton#topCompactButton {
-    min-height: 38px;
-    max-height: 40px;
+    min-height: 34px;
+    max-height: 34px;
     min-width: 72px;
     padding: 2px 10px;
     font-size: 13px;
     border-radius: 8px;
+}
+
+QPushButton[role="cashier-tab"] {
+    min-height: 36px;
+    max-height: 36px;
+    padding: 2px 12px;
 }
 
 /* Order type row */
@@ -1178,8 +1184,8 @@ QLabel#orderTypeLabel {
 }
 
 QPushButton[role="order-type"] {
-    min-height: 40px;
-    max-height: 42px;
+    min-height: 36px;
+    max-height: 36px;
     padding: 2px 12px;
     font-size: 14px;
 }

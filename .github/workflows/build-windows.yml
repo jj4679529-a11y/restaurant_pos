@@ -189,6 +189,25 @@ jobs:
           Set-Content "$root/logs/README.txt" 'Reserved for operator diagnostics. Preserve across updates.'
           Compress-Archive -Path $root -DestinationPath dist/RestaurantPOS-Monoblock1.zip
 
+      - name: Prepare Monoblock 2 installation package
+        shell: pwsh
+        run: |
+          $root = 'dist/Monoblock2/RestaurantPOS'
+          New-Item -ItemType Directory -Path 'dist/Monoblock2' -Force | Out-Null
+          Copy-Item dist/RestaurantPOS $root -Recurse
+          $version = Get-Content "$root/version.json" -Raw | ConvertFrom-Json
+          $version.server = $false
+          $version | ConvertTo-Json | Set-Content "$root/version.json" -Encoding UTF8
+          Set-Content "$root/INSTALL.txt" 'Monoblock 2: keep existing config/.env, use POS_API_BASE_URL=http://M1_LAN_IP:8000. Run RestaurantPOS.exe only. No PostgreSQL installation or server migration here.'
+          Compress-Archive -Path $root -DestinationPath dist/RestaurantPOS-Monoblock2.zip
+
+      - name: Upload Monoblock 2 installation package
+        uses: actions/upload-artifact@v4
+        with:
+          name: monoblock2-installation
+          path: dist/RestaurantPOS-Monoblock2.zip
+          if-no-files-found: error
+
       - name: Upload versioned deployment package
         uses: actions/upload-artifact@v4
         with:
