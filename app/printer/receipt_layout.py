@@ -160,6 +160,16 @@ def _addons(item: Any) -> list[Any]:
     )
 
 
+def _item_base_total(item: Any) -> Decimal:
+    """Return product-only total, excluding addon totals already stored in item total."""
+    item_total = Decimal(str(_item_total(item) or 0))
+    addon_total = sum(
+        (Decimal(str(_addon_total(addon) or 0)) for addon in _addons(item)),
+        Decimal(0),
+    )
+    return max(item_total - addon_total, Decimal(0))
+
+
 def _addon_name(row: Any) -> str:
     addon = getattr(row, "addon", None)
 
@@ -296,7 +306,7 @@ def build_strict_receipt(
         lines.append(
             _left_right(
                 qty_price,
-                _money(_item_total(item)),
+                _money(_item_base_total(item)),
             )
         )
 
