@@ -187,7 +187,7 @@ def cancel_order(
                 Payment.status == PaymentStatus.PAID,
             )
             .values(status=PaymentStatus.CANCELLED)
-            .execution_options(synchronize_session=False)
+            .execution_options(synchronize_session="fetch")
         )
 
     session.add(
