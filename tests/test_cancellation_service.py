@@ -282,12 +282,13 @@ def test_paid_order_cancellation_preserves_payment_and_moves_report_to_cancelled
         == "To‘lovdan keyin mijoz bekor qildi"
     )
 
-    # Payment audit yozuvi saqlanishi shart.
+    # Payment yozuvi audit uchun saqlanadi, lekin kassadan qaytgan pul
+    # boshqa PAID paymentlar bilan qo‘shilib ketmasligi uchun CANCELLED bo‘ladi.
     payment = db.get(Payment, payment_id)
 
     assert payment is not None
     assert payment.order_id == order_id
-    assert payment.status is PaymentStatus.PAID
+    assert payment.status is PaymentStatus.CANCELLED
     assert payment.amount == 30000
     assert payment.paid_at is not None
 
