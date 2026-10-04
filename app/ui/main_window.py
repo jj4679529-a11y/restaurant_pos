@@ -177,8 +177,6 @@ class PosMainWindow(QMainWindow):
         controls.addWidget(self.chaykhana_button)
         controls.addWidget(self.delivery_button)
 
-        # After a delivery worker is selected, the large selector collapses
-        # and only this compact button remains visible.
         self.delivery_worker_summary = QPushButton("")
         self.delivery_worker_summary.setObjectName(
             "deliveryWorkerSummary"
@@ -238,8 +236,6 @@ class PosMainWindow(QMainWindow):
 
         delivery_layout.addWidget(self.delivery_worker_scroll)
 
-        # Backward-compatible hidden combo.
-        # UI da ko‘rinmaydi; eski test/integratsiyalar uchun saqlanadi.
         self.delivery_worker_combo = QComboBox(self)
         self.delivery_worker_combo.hide()
         self.delivery_worker_combo.currentIndexChanged.connect(
@@ -347,8 +343,6 @@ class PosMainWindow(QMainWindow):
     def _apply_layout_geometry(self) -> None:
         self.cart_widget.setMinimumWidth(380)
         self.cart_widget.setMaximumWidth(440)
-
-        # ~14% categories / ~56% menu / ~30% current order
         self.splitter.setSizes([175, 720, 410])
 
     def _top_bar(self) -> QHBoxLayout:
@@ -479,7 +473,6 @@ class PosMainWindow(QMainWindow):
             QMessageBox.critical(self, title, str(error))
 
     def reload_catalog(self) -> None:
-        """Synchronous adapter retained for explicit callers; UI uses background jobs."""
         self.connection_label.setText('Menyu yuklanmoqda...')
         try:
             result = self.client.load_catalog()
@@ -519,7 +512,6 @@ class PosMainWindow(QMainWindow):
             return
         self.categories, self.products, self.workers = result[:3]
         self.categories = [c for c in self.categories if c.get('is_active', True)]
-        # Touch menu order is intentional: all items, Milliy taomlar, then the owner order.
         self.categories.sort(key=lambda c: (0 if str(c['name']).casefold() == 'milliy taomlar' else 1, str(c['name']).casefold()))
         self.catalog_images = result[3] if len(result) > 3 else {}
         if not self.catalog_initialized or self.selected_category_id is not None and self.selected_category_id not in {c['id'] for c in self.categories}:
@@ -597,7 +589,6 @@ class PosMainWindow(QMainWindow):
             self.delivery_worker_buttons.append(button)
             self.delivery_worker_layout.addWidget(button)
 
-        # QGridLayout has no addStretch(); keep free space at the bottom.
         self.delivery_worker_layout.setRowStretch(
             self.delivery_worker_layout.rowCount(),
             1,
@@ -618,7 +609,6 @@ class PosMainWindow(QMainWindow):
         return ""
 
     def _collapse_delivery_workers(self) -> None:
-        """Hide the large worker selector and show selected worker compactly."""
         name = self._selected_delivery_worker_name()
 
         if not name:
@@ -678,7 +668,6 @@ class PosMainWindow(QMainWindow):
                 int(worker["id"]) == worker_id
             )
 
-        # Selection is complete: return vertical space to menu/order.
         self._collapse_delivery_workers()
 
     @staticmethod
@@ -796,16 +785,12 @@ class PosMainWindow(QMainWindow):
     def _set_order_type(self, order_type: str) -> None:
         if order_type == "DELIVERY":
             if self.selected_delivery_worker_id is None:
-                # No worker selected yet: show the picker.
                 self.delivery_worker_summary.hide()
                 self.delivery_container.show()
             else:
-                # Existing selection: keep UI compact.
                 self._collapse_delivery_workers()
             return
 
-        # CHAYKHANA: delivery selection must never leak
-        # into the next order.
         self._reset_delivery_worker()
 
     def _order_type(self) -> str:
@@ -897,34 +882,11 @@ class PosMainWindow(QMainWindow):
         except Exception as error:
             self._handle_api_error(error, "Buyurtma saqlanmadi")
             return
-        # Delivery order is stored as PENDING, then cashier immediately
-        # returns to a clean CHAYKHANA draft. The saved delivery order remains
-        # available under SAQLANGANLAR for later payment/printing.
-        if self._order_type() == "DELIVERY":
-            saved_number = self.current_order["order_number"]
 
-            self.current_order = None
-            self.payment_uncertain = False
-
-            self.cart.clear()
-            self.cart_widget.render(self.cart)
-
-            self.chaykhana_button.setChecked(True)
-            self.delivery_button.setChecked(False)
-            self._set_order_type("CHAYKHANA")
-
-            self.fresh_order_button.setChecked(True)
-            self.saved_orders_button.setChecked(False)
-
-            self._set_editable(True)
-            self._sync_actions()
-
-            self.status_label.setText(
-                f"Yetkazib berish #{saved_number} saqlandi. "
-                "Yangi Choyxona buyurtmasi."
-            )
-            return
-
+        # Saqlangandan keyin DELIVERY ham CHAYKHANA kabi joriy buyurtma
+        # sifatida qoladi. Kassir avval to'lov va chekni yakunlaydi; faqat
+        # muvaffaqiyatli chek chop etilgandan keyin yangi CHAYKHANA draftiga
+        # qaytiladi.
         self._set_editable(False)
         self.cart_widget.total_label.setText(
             f"JAMI: {format_money(self.current_order['total_amount'])}"
@@ -944,8 +906,6 @@ class PosMainWindow(QMainWindow):
         self.checkout_button.setEnabled(False)
         try:
             if self.payment_uncertain:
-                # A timed-out PAY may already have committed. Read the server
-                # state before allowing another payment attempt.
                 self.current_order = self.client.get_order(int(self.current_order["id"]))
                 self.payment_uncertain = False
                 if self.current_order["payment_status"] not in {"PENDING", "PAID"}:
@@ -990,22 +950,28 @@ class PosMainWindow(QMainWindow):
         self.checkout_button.setEnabled(False)
         self.checkout_button.setText("Chek chop etish")
         self.new_order_button.setVisible(False)
+
+        # Har qanday muvaffaqiyatli chekdan keyin keyingi buyurtma toza
+        # CHAYKHANA holatidan boshlanadi. DELIVERY worker tanlovi ham reset.
+        self.chaykhana_button.setChecked(True)
+        self.delivery_button.setChecked(False)
+        self._set_order_type("CHAYKHANA")
+        self.fresh_order_button.setChecked(True)
+        self.saved_orders_button.setChecked(False)
+
         self._set_editable(True)
         self.status_label.setText("Yangi buyurtma yarating")
 
     def _new_order(self):
         if self.current_order is None:
-            # Returning to the draft never silently discards an unsaved cart.
             self.status_label.setText('Joriy savat saqlandi. Yangi buyurtmani davom ettiring.')
             return
-        # The saved order remains in the backend and can be reopened in history.
         self.current_order = None
         self._reset_after_payment()
 
     def _saved_orders(self):
         dialog = SavedOrdersDialog(self.client, self.settings.POS_PRINTER_ID, self._handle_api_error, self)
         dialog.exec()
-        # History has separate state. Reconcile a saved cart if it was paid there.
         if self.current_order is not None:
             try:
                 self.current_order = self.client.get_order(int(self.current_order['id']))
